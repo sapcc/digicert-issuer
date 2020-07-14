@@ -1,0 +1,7 @@
+domain: cloud.sap
+repo: digicert-issuer
+resources:
+- group: certmanager
+  kind: DigicertIssuer
+  version: v1beta1
+version: "2"

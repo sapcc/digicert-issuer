@@ -1,0 +1,7 @@
+apiVersion: certmanager.cloud.sap/v1beta1
+kind: DigicertIssuer
+metadata:
+  name: digicertissuer-sample
+spec:
+  # Add fields here
+  foo: bar

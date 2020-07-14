@@ -1,0 +1,28 @@
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: digicert-issuer-role
+rules:
+- apiGroups:
+  - certmanager.cloud.sap
+  resources:
+  - digicertissuers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - certmanager.cloud.sap
+  resources:
+  - digicertissuers/status
+  verbs:
+  - get
+  - patch
+  - update
