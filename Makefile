@@ -106,7 +106,7 @@ check-release-version:
 set-image: VERSION=$(shell cat VERSION)
 set-image:
 	cd config/digicert-issuer && kustomize edit set image digicert-issuer=${IMG}:${VERSION}
-	git commit -am "set digicert-issuer image to ${VERSION}"
+	git commit --allow-empty -am "set digicert-issuer image to ${VERSION}"
 
 release: VERSION=$(shell cat VERSION)
 release: git-tag-release set-image git-push-tag docker-build docker-push
