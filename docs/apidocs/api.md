@@ -19,7 +19,7 @@ DigicertIssuer is the Schema for the digicertissuers API
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
 | metadata |  | [metav1.ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#objectmeta-v1-meta) | false |
-| spec |  | [DigicertIssuerSpec](#digicertissuerspec) | false |
+| spec |  | [DigicertIssuerSpec](#digicertissuerspec) | true |
 | status |  | *[DigicertIssuerStatus](#digicertissuerstatus) | false |
 
 [Back to TOC](#table-of-contents)
@@ -77,7 +77,7 @@ DigiCertProvisioner contains the DigiCert provisioner configuration.
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
 | apiTokenReference | APITokenReference references a secret in the same namespace containing the DigiCert API token. | [SecretKeySelector](#secretkeyselector) | true |
-| caCertId | CACertID ... | string | false |
+| caCertID | CACertID ... | string | false |
 | organizationID | OrganizationID is the ID of the organization in Digicert. | *int | false |
 | organizationName | OrganizationName is the name of the organization in Digicert. If specified takes precedence over OrganizationID. | string | false |
 | organizationUnits | OrganizationUnits ... | []string | false |

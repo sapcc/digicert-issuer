@@ -36,7 +36,7 @@ type DigicertProvisioner struct {
 	APITokenReference SecretKeySelector `json:"apiTokenReference"`
 
 	// CACertID ...
-	CACertID string `json:"caCertId,omitempty"`
+	CACertID string `json:"caCertID,omitempty"`
 
 	// OrganizationID is the ID of the organization in Digicert.
 	OrganizationID *int `json:"organizationID,omitempty"`
@@ -146,14 +146,14 @@ const (
 )
 
 // +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 
 // DigicertIssuer is the Schema for the digicertissuers API
-// +kubebuilder:subresource:status
 type DigicertIssuer struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   DigicertIssuerSpec    `json:"spec,omitempty"`
+	Spec   DigicertIssuerSpec    `json:"spec"`
 	Status *DigicertIssuerStatus `json:"status,omitempty"`
 }
 

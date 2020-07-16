@@ -53,7 +53,7 @@ spec:
                   - key
                   - name
                   type: object
-                caCertId:
+                caCertID:
                   description: CACertID ...
                   type: string
                 disableRenewalNotifications:
@@ -137,6 +137,8 @@ spec:
                 type: object
               type: array
           type: object
+      required:
+      - spec
       type: object
   version: v1beta1
   versions:

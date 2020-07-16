@@ -19,7 +19,6 @@ package certmanager
 import (
 	"context"
 	"errors"
-
 	"github.com/go-logr/logr"
 	"github.com/hashicorp/go-multierror"
 	certmanagerv1beta1 "github.com/sapcc/digicert-issuer/apis/certmanager/v1beta1"
@@ -57,9 +56,7 @@ func (r *DigicertIssuerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	issuer, err := k8sutils.SetDigicertIssuerStatusConditionType(
-		r.Client, issuer, certmanagerv1beta1.ConditionReady, certmanagerv1beta1.ConditionFalse, "", "",
-	)
+	issuer, err := k8sutils.EnsureDigicertIssuerStatusInitialized(r.Client, issuer)
 	if err != nil {
 		logger.Error(err, "failed to initialize issuer status")
 	}
@@ -123,8 +120,8 @@ func validateDigicertIssuerSpec(issuerSpec certmanagerv1beta1.DigicertIssuerSpec
 	if provisionerSpec.OrganizationUnits == nil || len(provisionerSpec.OrganizationUnits) == 0 {
 		errs = multierror.Append(errs, errors.New("spec.provisioner.organizationalUnits missing"))
 	}
-	if provisionerSpec.OrganizationID == nil {
-		errs = multierror.Append(errs, errors.New("spec.provisioner.organizationID missing"))
+	if provisionerSpec.OrganizationID == nil && provisionerSpec.OrganizationName == "" {
+		errs = multierror.Append(errs, errors.New("spec.provisioner.organizationID or spec.provisioner.organizationName missing"))
 	}
 
 	return errs

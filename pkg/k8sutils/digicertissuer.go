@@ -19,6 +19,11 @@ func SetDigicertIssuerStatusConditionType(k8sClient client.Client, cur *certmana
 		Message:            message,
 	}
 
+	// Skip the update if the condition is already present and only the timestamp changed.
+	if isIssuerHasStatusConditionIgnoreTimestamp(cur.Status, newCondition) {
+		return cur, nil
+	}
+
 	new := cur.DeepCopy()
 	if new.Status == nil {
 		new.Status = &certmanagerv1beta1.DigicertIssuerStatus{
@@ -26,15 +31,42 @@ func SetDigicertIssuerStatusConditionType(k8sClient client.Client, cur *certmana
 		}
 	}
 
+	if new.Status.Conditions == nil || len(new.Status.Conditions) == 0 {
+		new.Status.Conditions = []certmanagerv1beta1.DigicertIssuerCondition{newCondition}
+		return patchDigicertIssuerStatus(k8sClient, cur, new)
+	}
+
 	for idx, curCondition := range new.Status.Conditions {
 		if curCondition.Type == newCondition.Type {
 			new.Status.Conditions[idx] = newCondition
-			continue
 		}
-		new.Status.Conditions[idx].Status = certmanagerv1beta1.ConditionFalse
 	}
 
 	return patchDigicertIssuerStatus(k8sClient, cur, new)
+}
+
+func EnsureDigicertIssuerStatusInitialized(k8sClient client.Client, issuer *certmanagerv1beta1.DigicertIssuer) (*certmanagerv1beta1.DigicertIssuer, error) {
+	if isDigicertIssuerReady(issuer) {
+		return issuer, nil
+	}
+
+	return SetDigicertIssuerStatusConditionType(
+		k8sClient, issuer, certmanagerv1beta1.ConditionReady, certmanagerv1beta1.ConditionFalse, "", "",
+	)
+}
+
+func isDigicertIssuerReady(issuer *certmanagerv1beta1.DigicertIssuer) bool {
+	if issuer.Status == nil {
+		return false
+	}
+
+	for _, condition := range issuer.Status.Conditions {
+		if condition.Type == certmanagerv1beta1.ConditionReady && condition.Status == certmanagerv1beta1.ConditionTrue {
+			return true
+		}
+	}
+
+	return false
 }
 
 func patchDigicertIssuerStatus(k8sClient client.Client, cur, new *certmanagerv1beta1.DigicertIssuer) (*certmanagerv1beta1.DigicertIssuer, error) {
@@ -44,4 +76,13 @@ func patchDigicertIssuerStatus(k8sClient client.Client, cur, new *certmanagerv1b
 	}
 
 	return new, nil
+}
+
+func isIssuerHasStatusConditionIgnoreTimestamp(issuerStatus *certmanagerv1beta1.DigicertIssuerStatus, condition certmanagerv1beta1.DigicertIssuerCondition) bool {
+	for _, cond := range issuerStatus.Conditions {
+		if cond.Status == condition.Status && cond.Type == condition.Type && cond.Reason == condition.Reason && cond.Message == condition.Message {
+			return true
+		}
+	}
+	return false
 }

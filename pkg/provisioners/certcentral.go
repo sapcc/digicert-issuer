@@ -37,7 +37,11 @@ func New(issuer *v1beta1.DigicertIssuer, apiToken string) (*CertCentral, error) 
 		return nil, err
 	}
 
-	organizationID := *issuer.Spec.Provisioner.OrganizationID
+	var organizationID int
+	if issuer.Spec.Provisioner.OrganizationID != nil {
+		organizationID = *issuer.Spec.Provisioner.OrganizationID
+	}
+
 	if issuer.Spec.Provisioner.OrganizationName != "" {
 		org, err := client.GetOrganizationByName(issuer.Spec.Provisioner.OrganizationName)
 		if err != nil {

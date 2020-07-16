@@ -13,7 +13,7 @@ Use the [Kustomize resources](config) or run `make deploy` to install the DigiCe
 
 # Documentation & Examples
 
-For additional information see the [API documentation](docs/apidocs/api.md) and the provided [samples](config/samples).
+For additional information see the [API documentation](docs/apidocs/api.md) and the provided [example](config/samples).
 
 # Development
 
