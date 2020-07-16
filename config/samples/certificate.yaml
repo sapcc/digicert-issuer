@@ -1,0 +1,21 @@
+apiVersion: cert-manager.io/v1alpha2
+kind: Certificate
+metadata:
+  name: certificate-example
+spec:
+  # The secret name to store the signed certificate
+  secretName: somednsname-tld
+  # Common Name
+  commonName: someDnsName.tld
+  # DNS SAN
+  dnsNames:
+    - someDnsName.tld
+  # Duration of the certificate
+  duration: 24h
+  # Renew 8 hours before the certificate expiration
+  renewBefore: 8h
+  # The reference to the step issuer
+  issuerRef:
+    group: certmanager.cloud.sap
+    kind: CertificateRequest
+    name: step-issuer

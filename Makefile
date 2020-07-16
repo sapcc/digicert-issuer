@@ -118,7 +118,6 @@ clean:
 	rm -rf $(TOOLS_BIN_DIR) ./bin
 
 .PHONY: vendor
-vendor: GOPRIVATE=github.com/sapcc/*
 vendor:
 	go mod download
 

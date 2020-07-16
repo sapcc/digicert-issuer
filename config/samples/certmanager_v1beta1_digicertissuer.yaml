@@ -1,7 +1,19 @@
 apiVersion: certmanager.cloud.sap/v1beta1
 kind: DigicertIssuer
 metadata:
-  name: digicertissuer-sample
+  name: digicert-issuer
 spec:
-  # Add fields here
-  foo: bar
+  provisioner:
+    caCertID: "AB123456"
+    organizationName: "SAP SE"
+    # organizationID: 123456
+    organizationUnits:
+      - someOrgUnit
+    validityYears: 1
+    disableRenewalNotifications: true
+    skipApproval: true
+    paymentMethod: "balance"
+    orderType: "private_ssl_plus"
+    apiTokenReference:
+      name: digicertissuer-secret
+      key: DIGICERT_API_TOKEN

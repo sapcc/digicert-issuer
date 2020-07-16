@@ -2,37 +2,36 @@ apiVersion: v1
 kind: Namespace
 metadata:
   labels:
-    control-plane: controller-manager
-  name: system
+    app.kubernetes.io/name: digicert-issuer
+  name: digicert-issuer
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: controller-manager
-  namespace: system
+  name: digicert-issuer
   labels:
-    control-plane: controller-manager
+    app.kubernetes.io/name: digicert-issuer
 spec:
   selector:
     matchLabels:
-      control-plane: controller-manager
+      app.kubernetes.io/name: digicert-issuer
   replicas: 1
   template:
     metadata:
       labels:
-        control-plane: controller-manager
+        app.kubernetes.io/name: digicert-issuer
     spec:
       containers:
       - command:
-        - /manager
+        - /digicert-issuer
         args:
         - --enable-leader-election
         image: controller:latest
-        name: manager
+        name: digicert-issuer
         resources:
           limits:
             cpu: 100m
-            memory: 30Mi
+            memory: 200Mi
           requests:
             cpu: 100m
             memory: 20Mi

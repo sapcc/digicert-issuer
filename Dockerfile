@@ -16,11 +16,11 @@ RUN make vendor
 # Copy the go source.
 COPY main.go main.go
 COPY apis/ apis/
-COPY pkg pkg/
+COPY pkg/ pkg/
 COPY controllers/ controllers/
 
 # Build.
-RUN make build
+RUN make build CGO_ENABLED=0
 
 # Use distroless as minimal base image to package the manager binary.
 # Refer to https://github.com/GoogleContainerTools/distroless for more details.

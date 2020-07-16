@@ -7,6 +7,30 @@ metadata:
   name: digicert-issuer-role
 rules:
 - apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+- apiGroups:
+  - cert-manager.io
+  resources:
+  - certificaterequests
+  verbs:
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - cert-manager.io
+  resources:
+  - certificaterequests/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
   - certmanager.cloud.sap
   resources:
   - digicertissuers
@@ -26,3 +50,11 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+  - list
+  - watch

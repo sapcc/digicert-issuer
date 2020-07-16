@@ -37,14 +37,60 @@ spec:
           description: DigicertIssuerSpec defines the desired state of DigicertIssuer
           properties:
             provisioner:
-              description: Provisioner ...
+              description: Provisioner contains the DigiCert provisioner configuration.
+              properties:
+                apiTokenReference:
+                  description: APITokenReference references a secret in the same namespace
+                    containing the DigiCert API token.
+                  properties:
+                    key:
+                      description: The key in the secret.
+                      type: string
+                    name:
+                      description: The name of the secret.
+                      type: string
+                  required:
+                  - key
+                  - name
+                  type: object
+                caCertId:
+                  description: CACertID ...
+                  type: string
+                disableRenewalNotifications:
+                  description: DisableRenewalNotifications ...
+                  type: boolean
+                orderType:
+                  description: OrderType ...
+                  type: string
+                organizationID:
+                  description: OrganizationID is the ID of the organization in Digicert.
+                  type: integer
+                organizationName:
+                  description: OrganizationName is the name of the organization in
+                    Digicert. If specified takes precedence over OrganizationID.
+                  type: string
+                organizationUnits:
+                  description: OrganizationUnits ...
+                  items:
+                    type: string
+                  type: array
+                paymentMethod:
+                  description: PaymentMethod ...
+                  type: string
+                skipApproval:
+                  description: SkipApproval ...
+                  type: boolean
+                validityYears:
+                  description: ValidityYears ...
+                  type: integer
+              required:
+              - apiTokenReference
               type: object
             url:
-              description: URL is the DigiCert cert-central URL containing the token.
+              description: URL is the DigiCert cert-central API.
               type: string
           required:
           - provisioner
-          - url
           type: object
         status:
           description: DigicertIssuerStatus defines the observed state of DigicertIssuer

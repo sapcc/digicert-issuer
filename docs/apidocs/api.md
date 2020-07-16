@@ -9,6 +9,8 @@ This Document documents the types introduced by the DigiCert Issuer to be consum
 * [DigicertIssuerList](#digicertissuerlist)
 * [DigicertIssuerSpec](#digicertissuerspec)
 * [DigicertIssuerStatus](#digicertissuerstatus)
+* [DigicertProvisioner](#digicertprovisioner)
+* [SecretKeySelector](#secretkeyselector)
 
 ## DigicertIssuer
 
@@ -18,7 +20,7 @@ DigicertIssuer is the Schema for the digicertissuers API
 | ----- | ----------- | ------ | -------- |
 | metadata |  | [metav1.ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#objectmeta-v1-meta) | false |
 | spec |  | [DigicertIssuerSpec](#digicertissuerspec) | false |
-| status |  | [DigicertIssuerStatus](#digicertissuerstatus) | false |
+| status |  | *[DigicertIssuerStatus](#digicertissuerstatus) | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -31,7 +33,7 @@ DigicertIssuerCondition  ...
 | type | Type of the condition, currently ('Ready'). | ConditionType | true |
 | status | Status of the condition, one of ('True', 'False', 'Unknown'). | ConditionStatus | true |
 | lastTransitionTime | LastTransitionTime is the timestamp corresponding to the last status change of this condition. | *metav1.Time | false |
-| reason | Reason is a brief machine readable explanation for the condition's last transition. | string | false |
+| reason | Reason is a brief machine readable explanation for the condition's last transition. | ConditionReason | false |
 | message | Message is a human readable description of the details of the last transition, complementing reason. | string | false |
 
 [Back to TOC](#table-of-contents)
@@ -53,8 +55,8 @@ DigicertIssuerSpec defines the desired state of DigicertIssuer
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
-| url | URL is the DigiCert cert-central URL containing the token. | string | true |
-| provisioner | Provisioner ... | [DigicertProvisioner](#digicertprovisioner) | true |
+| url | URL is the DigiCert cert-central API. | string | false |
+| provisioner | Provisioner contains the DigiCert provisioner configuration. | [DigicertProvisioner](#digicertprovisioner) | true |
 
 [Back to TOC](#table-of-contents)
 
@@ -65,5 +67,35 @@ DigicertIssuerStatus defines the observed state of DigicertIssuer
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
 | conditions | Conditions ... | [][DigicertIssuerCondition](#digicertissuercondition) | false |
+
+[Back to TOC](#table-of-contents)
+
+## DigicertProvisioner
+
+DigiCertProvisioner contains the DigiCert provisioner configuration.
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| apiTokenReference | APITokenReference references a secret in the same namespace containing the DigiCert API token. | [SecretKeySelector](#secretkeyselector) | true |
+| caCertId | CACertID ... | string | false |
+| organizationID | OrganizationID is the ID of the organization in Digicert. | *int | false |
+| organizationName | OrganizationName is the name of the organization in Digicert. If specified takes precedence over OrganizationID. | string | false |
+| organizationUnits | OrganizationUnits ... | []string | false |
+| validityYears | ValidityYears ... | *int | false |
+| disableRenewalNotifications | DisableRenewalNotifications ... | *bool | false |
+| paymentMethod | PaymentMethod ... | string | false |
+| skipApproval | SkipApproval ... | *bool | false |
+| orderType | OrderType ... | string | false |
+
+[Back to TOC](#table-of-contents)
+
+## SecretKeySelector
+
+SecretKeySelector references a secret in the same namespace containing sensitive configuration.
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| name | The name of the secret. | string | true |
+| key | The key in the secret. | string | true |
 
 [Back to TOC](#table-of-contents)

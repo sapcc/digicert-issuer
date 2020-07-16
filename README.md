@@ -5,11 +5,11 @@ DigiCert Issuer
 
 # Prerequisites
 
-The cert-manager needs to be installed in the selected cluster.
+The cert-manager and its `cert-manager.io/v1alpha2` CRDs needs to be installed in the selected cluster.
 
 # Installation & Configuration
 
-Use the [Kustomize resources](config) or run `make deploy`.
+Use the [Kustomize resources](config) or run `make deploy` to install the DigiCert issuer in the current cluster.
 
 # Documentation & Examples
 

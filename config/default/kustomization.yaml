@@ -1,5 +1,8 @@
+commonLabels:
+  app.kubernetes.io/name: digicert-issuer
+
 # Adds namespace to all resources.
-namespace: digicert-issuer-system
+namespace: digicert-issuer
 
 # Value of this field is prepended to the
 # names of all resources, e.g. a deployment named

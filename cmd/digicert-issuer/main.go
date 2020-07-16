@@ -17,7 +17,6 @@ limitations under the License.
 package main
 
 import (
-	"digicert-issuer/pkg/version"
 	"flag"
 	"fmt"
 	"os"
@@ -27,9 +26,10 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 
-	certmanagerv1beta1 "digicert-issuer/apis/certmanager/v1beta1"
-	certmanagerv1beta1controller "digicert-issuer/controllers/certmanager"
-
+	certmanagerv1alpha2 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha2"
+	certmanagerv1beta1 "github.com/sapcc/digicert-issuer/apis/certmanager/v1beta1"
+	certmanagerv1beta1controller "github.com/sapcc/digicert-issuer/controllers/certmanager"
+	"github.com/sapcc/digicert-issuer/pkg/version"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -44,7 +44,7 @@ var (
 
 func init() {
 	_ = clientgoscheme.AddToScheme(scheme)
-
+	_ = certmanagerv1alpha2.AddToScheme(scheme)
 	_ = certmanagerv1beta1.AddToScheme(scheme)
 	// +kubebuilder:scaffold:scheme
 }
@@ -98,7 +98,14 @@ func main() {
 		Log:    ctrl.Log.WithName("controllers").WithName("DigicertIssuer"),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr)
-	handleError(err, "unable to create controller", "controller", "DigicertIssuer")
+	handleError(err, "unable to initialize controller", "controller", "DigicertIssuer")
+
+	err = (&certmanagerv1beta1controller.CertificateRequestReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("CertificateRequest"),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr)
+	handleError(err, "unable to initialize controller", "controller", "certificateRequest")
 
 	// +kubebuilder:scaffold:builder
 
