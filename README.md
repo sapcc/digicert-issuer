@@ -14,3 +14,7 @@ Use the [Kustomize resources](config) or run `make deploy` to install the DigiCe
 # Documentation & Examples
 
 For additional information see the [API documentation](docs/apidocs/api.md) and the provided [samples](config/samples).
+
+# Release management
+
+Adjust the [version](VERSION) and run `make release` to build and publish a new version of the digicert-issuer.
