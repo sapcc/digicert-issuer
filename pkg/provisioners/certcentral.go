@@ -29,6 +29,10 @@ type CertCentral struct {
 	paymentMethod certcentral.PaymentMethod
 }
 
+func (c CertCentral) GetName() string {
+	return c.name
+}
+
 func New(issuer *v1beta1.DigicertIssuer, apiToken string) (*CertCentral, error) {
 	client, err := certcentral.New(&certcentral.Options{
 		Token: apiToken,

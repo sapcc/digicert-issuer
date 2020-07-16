@@ -89,7 +89,9 @@ func (r *DigicertIssuerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 		logger.Error(err, "failed to initialize provisioner")
 		return ctrl.Result{}, err
 	}
+
 	provisioners.Store(req.NamespacedName, prov)
+	logger.Info("provisioner is ready", "name", prov.GetName())
 
 	_, err = k8sutils.SetDigicertIssuerStatusConditionType(
 		r.Client, issuer, certmanagerv1beta1.ConditionReady, certmanagerv1beta1.ConditionTrue, "", "",
