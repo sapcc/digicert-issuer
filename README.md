@@ -15,6 +15,10 @@ Use the [Kustomize resources](config) or run `make deploy` to install the DigiCe
 
 For additional information see the [API documentation](docs/apidocs/api.md) and the provided [samples](config/samples).
 
-# Release management
+# Development
+
+For development, it may be convenient to use `make deploy-local` to install all resource except the operator to the current cluster and run the operator locally via `make run`.
+
+## Release management
 
 Adjust the [version](VERSION) and run `make release` to build and publish a new version of the digicert-issuer.

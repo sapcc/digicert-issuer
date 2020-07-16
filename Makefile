@@ -32,7 +32,7 @@ build: fmt vet
 # Make sure to run the deploy-local target beforehand.
 # Run the digicert-issuer against the configured Kubernetes cluster in ~/.kube/config with debug logging enabled.
 run: generate build
-	./bin/digicert-issuer --log-level=debug
+	./bin/digicert-issuer
 
 # Install CRDs into a cluster
 install: manifests

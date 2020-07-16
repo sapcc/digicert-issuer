@@ -1,5 +1,5 @@
 resources:
-- manager.yaml
+- deployment.yaml
 
 images:
 - name: digicert-issuer

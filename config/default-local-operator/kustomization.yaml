@@ -15,4 +15,3 @@ namePrefix: digicert-issuer-
 bases:
 - ../crd
 - ../rbac
-- ../digicert-issuer
