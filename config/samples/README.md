@@ -19,4 +19,5 @@ Note: In this context *deploy* means `kubectl apply -f $file.yaml`.
 
 4. The cert-manager will create the corresponding *CertificateRequest*, which can be seen using `kubectl get certificaterequest`.
 
-5. This controller will ensure the certificate is being issued by the Digicert API.
+5. This controller will ensure the certificate is being issued by the Digicert API and stored in the specified secret.
+   Verify the `tls.crt` and `tls.key` are present in the secret: `kubectl get secret -o yaml somednsname-tld`

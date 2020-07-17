@@ -55,7 +55,8 @@ func main() {
 		metricsAddr          string
 		enableLeaderElection bool
 		printVersionAndExit  bool
-		syncPeriod           time.Duration
+		syncPeriod,
+		backoffDurationProvisionerNotReady time.Duration
 	)
 
 	flag.StringVar(&namespace, "namespace", "",
@@ -72,6 +73,9 @@ func main() {
 
 	flag.DurationVar(&syncPeriod, "sync-period", 15*time.Minute,
 		"Synchronization period after which caches are invalidated.")
+
+	flag.DurationVar(&backoffDurationProvisionerNotReady, "backoff-duration-provisioner-not-ready", 10*time.Second,
+		"The backoff duration if the provisioner is not ready.")
 
 	flag.Parse()
 
@@ -98,12 +102,13 @@ func main() {
 		Log:    ctrl.Log.WithName("controllers").WithName("DigicertIssuer"),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr)
-	handleError(err, "unable to initialize controller", "controller", "DigicertIssuer")
+	handleError(err, "unable to initialize controller", "controller", "digicertIssuer")
 
 	err = (&certmanagerv1beta1controller.CertificateRequestReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("CertificateRequest"),
-		Scheme: mgr.GetScheme(),
+		Client:                             mgr.GetClient(),
+		Log:                                ctrl.Log.WithName("controllers").WithName("CertificateRequest"),
+		Scheme:                             mgr.GetScheme(),
+		BackoffDurationProvisionerNotReady: backoffDurationProvisionerNotReady,
 	}).SetupWithManager(mgr)
 	handleError(err, "unable to initialize controller", "controller", "certificateRequest")
 

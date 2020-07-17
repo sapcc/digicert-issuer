@@ -83,6 +83,9 @@ func (r *DigicertIssuerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 		)
 		return ctrl.Result{}, err
 	}
+	k8sutils.SetDigicertIssuerStatusConditionType(
+		r.Client, issuer, certmanagerv1beta1.ConditionConfigurationError, certmanagerv1beta1.ConditionFalse, "", "",
+	)
 
 	prov, err := provisioners.New(issuer, digicertAPIToken)
 	if err != nil {

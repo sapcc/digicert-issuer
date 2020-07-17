@@ -16,6 +16,7 @@ package certmanager
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/go-logr/logr"
 	apiutil "github.com/jetstack/cert-manager/pkg/api/util"
@@ -35,9 +36,10 @@ import (
 // CertificateRequestReconciler reconciles a DigicertIssuer object.
 type CertificateRequestReconciler struct {
 	client.Client
-	Log      logr.Logger
-	Scheme   *runtime.Scheme
-	recorder record.EventRecorder
+	Log                                logr.Logger
+	Scheme                             *runtime.Scheme
+	BackoffDurationProvisionerNotReady time.Duration
+	recorder                           record.EventRecorder
 }
 
 // +kubebuilder:rbac:groups=cert-manager.io,resources=certificaterequests,verbs=get;list;watch;update
@@ -91,19 +93,19 @@ func (r *CertificateRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result,
 		err := fmt.Errorf("resource %s is not ready", issNamespaceName)
 		log.Error(err, "issuers is not ready")
 		_ = r.setStatus(ctx, cr, cmmeta.ConditionFalse, cmapi.CertificateRequestReasonPending, "DigicertIssuer resource %s is not Ready", issNamespaceName)
-		return ctrl.Result{}, err
+		return ctrl.Result{Requeue: true, RequeueAfter: r.BackoffDurationProvisionerNotReady}, err
 	}
 
-	// Load the provisioner that will sign the CertificateRequest
+	// Load the provisioner that will sign the CertificateRequest.
 	provisioner, ok := provisioners.Load(issNamespaceName)
 	if !ok {
 		err := fmt.Errorf("provisioner %s not found", issNamespaceName)
-		log.Error(err, "failed to provisioner for DigicertIssuer resource")
+		log.Error(err, "failed to load provisioner for DigicertIssuer resource")
 		_ = r.setStatus(ctx, cr, cmmeta.ConditionFalse, cmapi.CertificateRequestReasonPending, "Failed to load provisioner for DigicertIssuer resource %s", issNamespaceName)
-		return ctrl.Result{}, err
+		return ctrl.Result{Requeue: true, RequeueAfter: r.BackoffDurationProvisionerNotReady}, err
 	}
 
-	// Sign CertificateRequest
+	// Sign CertificateRequest.
 	signedPEM, err := provisioner.Sign(ctx, cr)
 	if err != nil {
 		log.Error(err, "failed to sign certificate request")
@@ -119,7 +121,6 @@ func (r *CertificateRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result,
 // controller runtime.
 func (r *CertificateRequestReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.recorder = mgr.GetEventRecorderFor("certificateRequestController")
-
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&cmapi.CertificateRequest{}).
 		Complete(r)

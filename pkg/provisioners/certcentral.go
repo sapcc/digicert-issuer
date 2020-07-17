@@ -3,17 +3,13 @@ package provisioners
 import (
 	"context"
 	"fmt"
-	"sync"
 
 	certmanagerv1alpha2 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha2"
 	"github.com/sapcc/digicert-issuer/apis/certmanager/v1beta1"
 	certcentral "github.com/sapcc/go-certcentral"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 const defaultValidityYears = 1
-
-var collection = new(sync.Map)
 
 type CertCentral struct {
 	name   string
@@ -98,23 +94,13 @@ func New(issuer *v1beta1.DigicertIssuer, apiToken string) (*CertCentral, error) 
 	}, nil
 }
 
-func Load(namespacedName types.NamespacedName) (*CertCentral, bool) {
-	v, ok := collection.Load(namespacedName)
-	if !ok {
-		return nil, ok
-	}
-
-	p, ok := v.(*CertCentral)
-	return p, ok
-}
-
-func Store(namespacedName types.NamespacedName, provisioner *CertCentral) {
-	collection.Store(namespacedName, provisioner)
-}
-
 func (c *CertCentral) Sign(ctx context.Context, cr *certmanagerv1alpha2.CertificateRequest) ([]byte, error) {
 	certReq, err := decodeCertificateRequest(cr.Spec.CSRPEM)
 	if err != nil {
+		return nil, err
+	}
+
+	if err := certReq.CheckSignature(); err != nil {
 		return nil, err
 	}
 
@@ -127,7 +113,7 @@ func (c *CertCentral) Sign(ctx context.Context, cr *certmanagerv1alpha2.Certific
 		Certificate: certcentral.Certificate{
 			CommonName:        getCommonName(certReq),
 			DNSNames:          sans,
-			CSR:               string(certReq.Raw),
+			CSR:               string(cr.Spec.CSRPEM),
 			ServerPlatform:    certcentral.ServerPlatformForType(certcentral.ServerPlatformTypes.Nginx),
 			SignatureHash:     certcentral.SignatureHashes.SHA256,
 			CaCertID:          c.caCertID,
