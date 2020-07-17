@@ -54,13 +54,15 @@ spec:
                   - name
                   type: object
                 caCertID:
-                  description: CACertID ...
+                  description: CACertID is the ID of the CA if multiple CA certificates
+                    are configured in the (sub-)account.
                   type: string
                 disableRenewalNotifications:
-                  description: DisableRenewalNotifications ...
+                  description: DisableRenewalNotifications disables email renewal
+                    notifications for expiring certificates.
                   type: boolean
                 orderType:
-                  description: OrderType ...
+                  description: OrderType is the certificate order type.
                   type: string
                 organizationID:
                   description: OrganizationID is the ID of the organization in Digicert.
@@ -70,24 +72,26 @@ spec:
                     Digicert. If specified takes precedence over OrganizationID.
                   type: string
                 organizationUnits:
-                  description: OrganizationUnits ...
+                  description: OrganizationUnits is the list of organizational units.
                   items:
                     type: string
                   type: array
                 paymentMethod:
-                  description: PaymentMethod ...
+                  description: PaymentMethod is the configured payment method in the
+                    Digicert account.
                   type: string
                 skipApproval:
-                  description: SkipApproval ...
+                  description: SkipApproval skips the approval of the certificate.
                   type: boolean
                 validityYears:
-                  description: ValidityYears ...
+                  description: ValidityYears is the validity of the certificate in
+                    years.
                   type: integer
               required:
               - apiTokenReference
               type: object
             url:
-              description: URL is the DigiCert cert-central API.
+              description: Optional URL is the DigiCert cert-central API.
               type: string
           required:
           - provisioner
@@ -96,7 +100,8 @@ spec:
           description: DigicertIssuerStatus defines the observed state of DigicertIssuer
           properties:
             conditions:
-              description: Conditions ...
+              description: Conditions is a list of DigicertIssuerConditions describing
+                the current status.
               items:
                 description: DigicertIssuerCondition  ...
                 properties:
