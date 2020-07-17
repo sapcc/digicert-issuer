@@ -55,7 +55,7 @@ DigicertIssuerSpec defines the desired state of DigicertIssuer
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
-| url | URL is the DigiCert cert-central API. | string | false |
+| url | Optional URL is the DigiCert cert-central API. | string | false |
 | provisioner | Provisioner contains the DigiCert provisioner configuration. | [DigicertProvisioner](#digicertprovisioner) | true |
 
 [Back to TOC](#table-of-contents)
@@ -66,7 +66,7 @@ DigicertIssuerStatus defines the observed state of DigicertIssuer
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
-| conditions | Conditions ... | [][DigicertIssuerCondition](#digicertissuercondition) | false |
+| conditions | Conditions is a list of DigicertIssuerConditions describing the current status. | [][DigicertIssuerCondition](#digicertissuercondition) | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -77,15 +77,15 @@ DigiCertProvisioner contains the DigiCert provisioner configuration.
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
 | apiTokenReference | APITokenReference references a secret in the same namespace containing the DigiCert API token. | [SecretKeySelector](#secretkeyselector) | true |
-| caCertID | CACertID ... | string | false |
+| caCertID | CACertID is the ID of the CA if multiple CA certificates are configured in the (sub-)account. | string | false |
 | organizationID | OrganizationID is the ID of the organization in Digicert. | *int | false |
 | organizationName | OrganizationName is the name of the organization in Digicert. If specified takes precedence over OrganizationID. | string | false |
-| organizationUnits | OrganizationUnits ... | []string | false |
-| validityYears | ValidityYears ... | *int | false |
-| disableRenewalNotifications | DisableRenewalNotifications ... | *bool | false |
-| paymentMethod | PaymentMethod ... | string | false |
-| skipApproval | SkipApproval ... | *bool | false |
-| orderType | OrderType ... | string | false |
+| organizationUnits | OrganizationUnits is the list of organizational units. | []string | false |
+| validityYears | ValidityYears is the validity of the certificate in years. | *int | false |
+| disableRenewalNotifications | DisableRenewalNotifications disables email renewal notifications for expiring certificates. | *bool | false |
+| paymentMethod | PaymentMethod is the configured payment method in the Digicert account. | string | false |
+| skipApproval | SkipApproval skips the approval of the certificate. | *bool | false |
+| orderType | OrderType is the certificate order type. | string | false |
 
 [Back to TOC](#table-of-contents)
 

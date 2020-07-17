@@ -23,7 +23,8 @@ import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 // DigicertIssuerSpec defines the desired state of DigicertIssuer
 type DigicertIssuerSpec struct {
-	// URL is the DigiCert cert-central API.
+	// Optional URL is the DigiCert cert-central API.
+	// +optional
 	URL string `json:"url,omitempty"`
 
 	// Provisioner contains the DigiCert provisioner configuration.
@@ -35,7 +36,7 @@ type DigicertProvisioner struct {
 	// APITokenReference references a secret in the same namespace containing the DigiCert API token.
 	APITokenReference SecretKeySelector `json:"apiTokenReference"`
 
-	// CACertID ...
+	// CACertID is the ID of the CA if multiple CA certificates are configured in the (sub-)account.
 	CACertID string `json:"caCertID,omitempty"`
 
 	// OrganizationID is the ID of the organization in Digicert.
@@ -45,22 +46,22 @@ type DigicertProvisioner struct {
 	// If specified takes precedence over OrganizationID.
 	OrganizationName string `json:"organizationName,omitempty"`
 
-	// OrganizationUnits ...
+	// OrganizationUnits is the list of organizational units.
 	OrganizationUnits []string `json:"organizationUnits,omitempty"`
 
-	// ValidityYears ...
+	// ValidityYears is the validity of the certificate in years.
 	ValidityYears *int `json:"validityYears,omitempty"`
 
-	// DisableRenewalNotifications ...
+	// DisableRenewalNotifications disables email renewal notifications for expiring certificates.
 	DisableRenewalNotifications *bool `json:"disableRenewalNotifications,omitempty"`
 
-	// PaymentMethod ...
+	// PaymentMethod is the configured payment method in the Digicert account.
 	PaymentMethod string `json:"paymentMethod,omitempty"`
 
-	// SkipApproval ...
+	// SkipApproval skips the approval of the certificate.
 	SkipApproval *bool `json:"skipApproval,omitempty"`
 
-	// OrderType ...
+	// OrderType is the certificate order type.
 	OrderType string `json:"orderType,omitempty"`
 }
 
@@ -75,7 +76,7 @@ type SecretKeySelector struct {
 
 // DigicertIssuerStatus defines the observed state of DigicertIssuer
 type DigicertIssuerStatus struct {
-	// Conditions ...
+	// Conditions is a list of DigicertIssuerConditions describing the current status.
 	// +optional
 	Conditions []DigicertIssuerCondition `json:"conditions,omitempty"`
 }

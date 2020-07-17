@@ -54,3 +54,7 @@ func getCommonName(cr *x509.CertificateRequest) string {
 
 	return "digicert-issuer-certificate"
 }
+
+func isSelfSigned(cert *x509.Certificate) bool {
+	return cert.CheckSignatureFrom(cert) == nil
+}

@@ -94,14 +94,14 @@ func New(issuer *v1beta1.DigicertIssuer, apiToken string) (*CertCentral, error) 
 	}, nil
 }
 
-func (c *CertCentral) Sign(ctx context.Context, cr *certmanagerv1alpha2.CertificateRequest) ([]byte, error) {
+func (c *CertCentral) Sign(ctx context.Context, cr *certmanagerv1alpha2.CertificateRequest) ([]byte, []byte, error) {
 	certReq, err := decodeCertificateRequest(cr.Spec.CSRPEM)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if err := certReq.CheckSignature(); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	sans := certReq.DNSNames
@@ -126,13 +126,34 @@ func (c *CertCentral) Sign(ctx context.Context, cr *certmanagerv1alpha2.Certific
 		Organization:                &certcentral.Organization{ID: c.organizationID},
 	}, c.orderType)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
+	// TODO: This currently relies on skipApproval=true, so the certificates are returned immediately.
+	// If that's not the case, the certificateIDs needs to be extracted from the response and
+	// each element of the certificate chain needs to be downloaded.
+	// Bonus points: Cache the CA and intermediate as they won't change and only download the missing certificate.
+	crtChain, err := orderResponse.DecodeCertificateChain()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	rootCAPEM := make([]byte, 0)
 	crtChainPEMs := make([]byte, 0)
-	for _, crt := range orderResponse.CertificateChain {
-		crtChainPEMs = append(crtChainPEMs, crt.Pem...)
+
+	for _, crt := range crtChain {
+		crtPEM, err := encodeCertificate(crt)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		switch {
+		case crt.IsCA && isSelfSigned(crt):
+			rootCAPEM = append(rootCAPEM, crtPEM...)
+		default:
+			crtChainPEMs = append(crtChainPEMs, crtPEM...)
+		}
 	}
 
-	return crtChainPEMs, nil
+	return rootCAPEM, crtChainPEMs, nil
 }
