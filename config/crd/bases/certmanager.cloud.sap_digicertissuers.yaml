@@ -8,6 +8,13 @@ metadata:
   creationTimestamp: null
   name: digicertissuers.certmanager.cloud.sap
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .status.conditions[?(@.type=="Ready")].status
+    name: Ready
+    type: boolean
+  - JSONPath: .metadata.creationTimestamp
+    name: Age
+    type: date
   group: certmanager.cloud.sap
   names:
     kind: DigicertIssuer
