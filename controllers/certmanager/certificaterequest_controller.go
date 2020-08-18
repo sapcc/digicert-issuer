@@ -106,15 +106,21 @@ func (r *CertificateRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result,
 	}
 
 	// Sign CertificateRequest.
-	caPEM, certPEM, certID, err := provisioner.Sign(ctx, cr)
+	caPEM, certPEM, order, err := provisioner.Sign(ctx, cr)
 	if err != nil {
 		log.Error(err, "failed to sign certificate request")
 		return ctrl.Result{}, r.setStatus(ctx, cr, cmmeta.ConditionFalse, cmapi.CertificateRequestReasonFailed, "Failed to sign certificate request: %v", err)
 	}
 
-	if certID > 0 {
+	if order.ID > 0 {
 		annotations := cr.ObjectMeta.GetAnnotations()
-		annotations["cert-manager.io/digicert-cert-id"] = string(certID)
+		annotations["cert-manager.io/digicert-order-id"] = string(order.ID)
+		cr.ObjectMeta.SetAnnotations(annotations)
+	}
+
+	if order.CertificateID > 0 {
+		annotations := cr.ObjectMeta.GetAnnotations()
+		annotations["cert-manager.io/digicert-cert-id"] = string(order.CertificateID)
 		cr.ObjectMeta.SetAnnotations(annotations)
 	}
 
@@ -122,7 +128,7 @@ func (r *CertificateRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result,
 		cr.Status.CA = caPEM
 		cr.Status.Certificate = certPEM
 		err = r.setStatus(ctx, cr, cmmeta.ConditionTrue, cmapi.CertificateRequestReasonIssued, "Certificate issued")
-	} else if certID > 0 {
+	} else if order.CertificateID > 0 || order.ID > 0 {
 		err = r.setStatus(ctx, cr, cmmeta.ConditionFalse, cmapi.CertificateRequestReasonPending, "Certificate request pending")
 		return ctrl.Result{Requeue: true, RequeueAfter: r.BackoffDurationProvisionerNotReady}, err
 	} else {
