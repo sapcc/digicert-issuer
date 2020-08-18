@@ -106,15 +106,29 @@ func (r *CertificateRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result,
 	}
 
 	// Sign CertificateRequest.
-	caPEM, certPEM, err := provisioner.Sign(ctx, cr)
+	caPEM, certPEM, certID, err := provisioner.Sign(ctx, cr)
 	if err != nil {
 		log.Error(err, "failed to sign certificate request")
 		return ctrl.Result{}, r.setStatus(ctx, cr, cmmeta.ConditionFalse, cmapi.CertificateRequestReasonFailed, "Failed to sign certificate request: %v", err)
 	}
-	cr.Status.CA = caPEM
-	cr.Status.Certificate = certPEM
 
-	err = r.setStatus(ctx, cr, cmmeta.ConditionTrue, cmapi.CertificateRequestReasonIssued, "Certificate issued")
+	if certID > 0 {
+		annotations := cr.ObjectMeta.GetAnnotations()
+		annotations["cert-manager.io/digicert-cert-id"] = string(certID)
+		cr.ObjectMeta.SetAnnotations(annotations)
+	}
+
+	if len(caPEM) > 0 && len(certPEM) > 0 {
+		cr.Status.CA = caPEM
+		cr.Status.Certificate = certPEM
+		err = r.setStatus(ctx, cr, cmmeta.ConditionTrue, cmapi.CertificateRequestReasonIssued, "Certificate issued")
+	} else if certID > 0 {
+		err = r.setStatus(ctx, cr, cmmeta.ConditionFalse, cmapi.CertificateRequestReasonPending, "Certificate request pending")
+		return ctrl.Result{Requeue: true, RequeueAfter: r.BackoffDurationProvisionerNotReady}, err
+	} else {
+		err = r.setStatus(ctx, cr, cmmeta.ConditionUnknown, cmapi.CertificateRequestReasonFailed, "Certificate request failed")
+	}
+
 	return ctrl.Result{}, err
 }
 
