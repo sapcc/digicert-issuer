@@ -70,7 +70,7 @@ func New(issuer *v1beta1.DigicertIssuer, apiToken string) (*CertCentral, error) 
 		disableRenewalNotifications = *issuer.Spec.Provisioner.DisableRenewalNotifications
 	}
 
-	orderType := certcentral.OrderTypes.PrivateSSLPlus
+	orderType := certcentral.OrderTypes.SecureSiteOV
 	if t, ok := mapToOrderType(issuer.Spec.Provisioner.OrderType); ok {
 		orderType = t
 	}

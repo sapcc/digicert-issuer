@@ -19,6 +19,7 @@ package certmanager
 import (
 	"context"
 	"errors"
+
 	"github.com/go-logr/logr"
 	"github.com/hashicorp/go-multierror"
 	certmanagerv1beta1 "github.com/sapcc/digicert-issuer/apis/certmanager/v1beta1"
@@ -118,9 +119,6 @@ func validateDigicertIssuerSpec(issuerSpec certmanagerv1beta1.DigicertIssuerSpec
 	}
 	if provisionerSpec.APITokenReference.Key == "" {
 		errs = multierror.Append(errs, errors.New("spec.provisioner.apiTokenReference.key missing"))
-	}
-	if provisionerSpec.CACertID == "" {
-		errs = multierror.Append(errs, errors.New("spec.provisioner.caCertID missing"))
 	}
 	if provisionerSpec.OrganizationUnits == nil || len(provisionerSpec.OrganizationUnits) == 0 {
 		errs = multierror.Append(errs, errors.New("spec.provisioner.organizationalUnits missing"))

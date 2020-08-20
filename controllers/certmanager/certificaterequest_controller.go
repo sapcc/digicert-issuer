@@ -40,6 +40,7 @@ type CertificateRequestReconciler struct {
 	Scheme                             *runtime.Scheme
 	BackoffDurationProvisionerNotReady time.Duration
 	recorder                           record.EventRecorder
+	DefaultProviderNamespace           string
 }
 
 // +kubebuilder:rbac:groups=cert-manager.io,resources=certificaterequests,verbs=get;list;watch;update
@@ -78,15 +79,25 @@ func (r *CertificateRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result,
 		return ctrl.Result{}, nil
 	}
 
+	if isCertificateRequestPending(cr) {
+		log.V(4).Info("Skipping pending CertificateRequest", "name", cr.ObjectMeta.Name)
+		return ctrl.Result{}, nil
+	}
+
 	iss := new(certmanagerv1beta1.DigicertIssuer)
 	issNamespaceName := types.NamespacedName{
 		Namespace: req.Namespace,
 		Name:      cr.Spec.IssuerRef.Name,
 	}
 	if err := r.Client.Get(ctx, issNamespaceName, iss); err != nil {
-		log.Error(err, "failed to retrieve DigicertIssuer resource", "namespace", req.Namespace, "name", cr.Spec.IssuerRef.Name)
-		_ = r.setStatus(ctx, cr, cmmeta.ConditionFalse, cmapi.CertificateRequestReasonPending, "Failed to retrieve DigicertIssuer resource %s: %v", issNamespaceName, err)
-		return ctrl.Result{}, err
+		log.V(4).Info("Failed to retrieve DigicertIssuer resource, falling back to default namespace", "namespace", req.Namespace, "name", cr.Spec.IssuerRef.Name)
+		issNamespaceName.Namespace = r.DefaultProviderNamespace
+		err = r.Client.Get(ctx, issNamespaceName, iss)
+		if err != nil {
+			log.Error(err, "No DigicertIssuer resource found", "namespace", r.DefaultProviderNamespace, "name", cr.Spec.IssuerRef.Name)
+			_ = r.setStatus(ctx, cr, cmmeta.ConditionFalse, cmapi.CertificateRequestReasonPending, "Failed to retrieve DigicertIssuer resource %s: %v", issNamespaceName, err)
+			return ctrl.Result{}, err
+		}
 	}
 
 	if !isDigicertIssuerReady(iss) {
@@ -155,6 +166,18 @@ func isDigicertIssuerReady(issuer *certmanagerv1beta1.DigicertIssuer) bool {
 
 	for _, condition := range status.Conditions {
 		if condition.Type == certmanagerv1beta1.ConditionReady && condition.Status == certmanagerv1beta1.ConditionTrue {
+			return true
+		}
+	}
+
+	return false
+}
+
+func isCertificateRequestPending(cr *cmapi.CertificateRequest) bool {
+	status := cr.Status
+
+	for _, condition := range status.Conditions {
+		if condition.Reason == "Pending" {
 			return true
 		}
 	}

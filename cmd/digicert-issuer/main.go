@@ -51,16 +51,20 @@ func init() {
 
 func main() {
 	var (
-		namespace            string
-		metricsAddr          string
-		enableLeaderElection bool
-		printVersionAndExit  bool
+		namespace                string
+		defaultProviderNamespace string
+		metricsAddr              string
+		enableLeaderElection     bool
+		printVersionAndExit      bool
 		syncPeriod,
 		backoffDurationProvisionerNotReady time.Duration
 	)
 
 	flag.StringVar(&namespace, "namespace", "",
 		"Confine operator to the given namespace.")
+
+	flag.StringVar(&defaultProviderNamespace, "default-provider-namespace", "kube-system",
+		"Namespace to fall back if provider does not exists.")
 
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080",
 		"The address the metric endpoint binds to.")
@@ -109,6 +113,7 @@ func main() {
 		Log:                                ctrl.Log.WithName("controllers").WithName("CertificateRequest"),
 		Scheme:                             mgr.GetScheme(),
 		BackoffDurationProvisionerNotReady: backoffDurationProvisionerNotReady,
+		DefaultProviderNamespace:           defaultProviderNamespace,
 	}).SetupWithManager(mgr)
 	handleError(err, "unable to initialize controller", "controller", "certificateRequest")
 
