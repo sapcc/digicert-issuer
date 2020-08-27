@@ -27,6 +27,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 
 	certmanagerv1alpha2 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha2"
+	"github.com/prometheus/client_golang/prometheus"
 	certmanagerv1beta1 "github.com/sapcc/digicert-issuer/apis/certmanager/v1beta1"
 	certmanagerv1beta1controller "github.com/sapcc/digicert-issuer/controllers/certmanager"
 	"github.com/sapcc/digicert-issuer/pkg/version"
@@ -34,12 +35,34 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
 	// +kubebuilder:scaffold:imports
 )
 
 var (
-	scheme   = runtime.NewScheme()
-	setupLog = ctrl.Log.WithName("setup")
+	scheme                = runtime.NewScheme()
+	setupLog              = ctrl.Log.WithName("setup")
+	metricRequestsPending = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "digicertissuer_request_pending_total",
+			Help: "Number of retries of a pending certificate request",
+		},
+		[]string{
+			"certificate_request",
+			"certificate",
+			"secret",
+		},
+	)
+	metricIssuerNotReady = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "digicertissuer_not_ready",
+			Help: "Increases when digicert-issuer is not ready",
+		},
+		[]string{
+			"issuer",
+			"reason",
+		},
+	)
 )
 
 func init() {
@@ -50,6 +73,8 @@ func init() {
 }
 
 func main() {
+	metrics.Registry.MustRegister(metricRequestsPending)
+
 	var (
 		namespace                string
 		defaultProviderNamespace string
@@ -58,6 +83,7 @@ func main() {
 		printVersionAndExit      bool
 		syncPeriod,
 		backoffDurationProvisionerNotReady time.Duration
+		backoffDurationRequestPending time.Duration
 	)
 
 	flag.StringVar(&namespace, "namespace", "",
@@ -80,6 +106,9 @@ func main() {
 
 	flag.DurationVar(&backoffDurationProvisionerNotReady, "backoff-duration-provisioner-not-ready", 10*time.Second,
 		"The backoff duration if the provisioner is not ready.")
+
+	flag.DurationVar(&backoffDurationRequestPending, "backoff-duration-request-pending", 15*time.Minute,
+		"The backoff duration if certificate request is pending.")
 
 	flag.Parse()
 
@@ -113,7 +142,10 @@ func main() {
 		Log:                                ctrl.Log.WithName("controllers").WithName("CertificateRequest"),
 		Scheme:                             mgr.GetScheme(),
 		BackoffDurationProvisionerNotReady: backoffDurationProvisionerNotReady,
+		BackoffDurationRequestPending:      backoffDurationRequestPending,
 		DefaultProviderNamespace:           defaultProviderNamespace,
+		MetricRequestsPending:              metricRequestsPending,
+		MetricIssuerNotReady:               metricIssuerNotReady,
 	}).SetupWithManager(mgr)
 	handleError(err, "unable to initialize controller", "controller", "certificateRequest")
 

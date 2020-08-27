@@ -2,6 +2,7 @@ package provisioners
 
 import (
 	"context"
+	"crypto/x509"
 	"fmt"
 
 	certmanagerv1alpha2 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha2"
@@ -138,13 +139,46 @@ func (c *CertCentral) Sign(ctx context.Context, cr *certmanagerv1alpha2.Certific
 		return nil, nil, nil, err
 	}
 
+	rootCAPEM, crtChainPEMs, err := encodePem(crtChain)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	return rootCAPEM, crtChainPEMs, orderResponse, nil
+}
+
+func (c *CertCentral) Download(ctx context.Context, cr *certmanagerv1alpha2.CertificateRequest) ([]byte, []byte, error) {
+	certID := cr.GetAnnotations()["cert-manager.io/digicert-cert-id"]
+	if certID == "" {
+		// TODO: get cert_id by order_id if missing
+		return nil, nil, fmt.Errorf("No cert id given for %s", cr.ObjectMeta.Name)
+	}
+
+	chain, err := c.client.GetCertificateChain(certID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("Error receiving certificate chain %s for request %s: %s", certID, cr.ObjectMeta.Name, err)
+	}
+
+	crtChain := make([]*x509.Certificate, 0)
+	for _, crt := range chain {
+		decodedCrt, err := crt.DecodePEM()
+		if err != nil {
+			return nil, nil, err
+		}
+		crtChain = append(crtChain, decodedCrt...)
+	}
+
+	return encodePem(crtChain)
+}
+
+func encodePem(crtChain []*x509.Certificate) ([]byte, []byte, error) {
 	rootCAPEM := make([]byte, 0)
 	crtChainPEMs := make([]byte, 0)
 
 	for _, crt := range crtChain {
 		crtPEM, err := encodeCertificate(crt)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, nil, err
 		}
 
 		switch {
@@ -155,5 +189,5 @@ func (c *CertCentral) Sign(ctx context.Context, cr *certmanagerv1alpha2.Certific
 		}
 	}
 
-	return rootCAPEM, crtChainPEMs, orderResponse, nil
+	return rootCAPEM, crtChainPEMs, nil
 }

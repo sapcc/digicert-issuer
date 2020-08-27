@@ -22,6 +22,7 @@ import (
 	apiutil "github.com/jetstack/cert-manager/pkg/api/util"
 	cmapi "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha2"
 	cmmeta "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
+	"github.com/prometheus/client_golang/prometheus"
 	certmanagerv1beta1 "github.com/sapcc/digicert-issuer/apis/certmanager/v1beta1"
 	"github.com/sapcc/digicert-issuer/pkg/provisioners"
 	core "k8s.io/api/core/v1"
@@ -39,8 +40,11 @@ type CertificateRequestReconciler struct {
 	Log                                logr.Logger
 	Scheme                             *runtime.Scheme
 	BackoffDurationProvisionerNotReady time.Duration
+	BackoffDurationRequestPending      time.Duration
 	recorder                           record.EventRecorder
 	DefaultProviderNamespace           string
+	MetricRequestsPending              *prometheus.CounterVec
+	MetricIssuerNotReady               *prometheus.CounterVec
 }
 
 // +kubebuilder:rbac:groups=cert-manager.io,resources=certificaterequests,verbs=get;list;watch;update
@@ -79,11 +83,6 @@ func (r *CertificateRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result,
 		return ctrl.Result{}, nil
 	}
 
-	if isCertificateRequestPending(cr) {
-		log.V(4).Info("Skipping pending CertificateRequest", "name", cr.ObjectMeta.Name)
-		return ctrl.Result{}, nil
-	}
-
 	iss := new(certmanagerv1beta1.DigicertIssuer)
 	issNamespaceName := types.NamespacedName{
 		Namespace: req.Namespace,
@@ -116,6 +115,35 @@ func (r *CertificateRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result,
 		return ctrl.Result{Requeue: true, RequeueAfter: r.BackoffDurationProvisionerNotReady}, err
 	}
 
+	// Download pending certificate
+	if isCertificateRequestPending(cr) {
+		log.V(4).Info("CertificateRequest is in pending state, trying to download certificate.", "name", cr.ObjectMeta.Name)
+		caPEM, certPEM, err := provisioner.Download(ctx, cr)
+
+		if err != nil || len(caPEM) < 1 || len(certPEM) < 1 {
+			log.V(4).Info("Download of pending certificate failed, reqeueing.", "name", cr.ObjectMeta.Name)
+			_ = r.setStatus(ctx, cr, cmmeta.ConditionFalse, cmapi.CertificateRequestReasonPending, "Certificate request pending")
+
+			err2 := increaseCounterMetric(
+				r.MetricRequestsPending,
+				cr.ObjectMeta.Name,
+				cr.ObjectMeta.GetAnnotations()["cert-manager.io/certificate-name"],
+				cr.ObjectMeta.GetAnnotations()["cert-manager.io/private-key-secret-name"],
+			)
+			if err2 != nil {
+				log.Error(err2, "Could not increase request pending metric.")
+			}
+
+			return ctrl.Result{Requeue: true, RequeueAfter: r.BackoffDurationRequestPending}, err
+		}
+
+		cr.Status.CA = caPEM
+		cr.Status.Certificate = certPEM
+		err = r.setStatus(ctx, cr, cmmeta.ConditionTrue, cmapi.CertificateRequestReasonIssued, "Certificate issued")
+
+		return ctrl.Result{}, err
+	}
+
 	// Sign CertificateRequest.
 	caPEM, certPEM, order, err := provisioner.Sign(ctx, cr)
 	if err != nil {
@@ -125,14 +153,16 @@ func (r *CertificateRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result,
 
 	if order.ID > 0 {
 		annotations := cr.ObjectMeta.GetAnnotations()
-		annotations["cert-manager.io/digicert-order-id"] = string(order.ID)
+		annotations["cert-manager.io/digicert-order-id"] = fmt.Sprintf("%d", order.ID)
 		cr.ObjectMeta.SetAnnotations(annotations)
+		r.Client.Update(ctx, cr)
 	}
 
 	if order.CertificateID > 0 {
 		annotations := cr.ObjectMeta.GetAnnotations()
-		annotations["cert-manager.io/digicert-cert-id"] = string(order.CertificateID)
+		annotations["cert-manager.io/digicert-cert-id"] = fmt.Sprintf("%d", order.CertificateID)
 		cr.ObjectMeta.SetAnnotations(annotations)
+		r.Client.Update(ctx, cr)
 	}
 
 	if len(caPEM) > 0 && len(certPEM) > 0 {
@@ -147,15 +177,6 @@ func (r *CertificateRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result,
 	}
 
 	return ctrl.Result{}, err
-}
-
-// SetupWithManager initializes the CertificateRequest controller into the
-// controller runtime.
-func (r *CertificateRequestReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	r.recorder = mgr.GetEventRecorderFor("certificateRequestController")
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&cmapi.CertificateRequest{}).
-		Complete(r)
 }
 
 func isDigicertIssuerReady(issuer *certmanagerv1beta1.DigicertIssuer) bool {
@@ -183,6 +204,27 @@ func isCertificateRequestPending(cr *cmapi.CertificateRequest) bool {
 	}
 
 	return false
+}
+
+func increaseCounterMetric(cv *prometheus.CounterVec, labels ...string) error {
+	counter, err := cv.GetMetricWithLabelValues(labels...)
+
+	if err != nil {
+		return fmt.Errorf("Unable to increase metric %s: %s", counter, err)
+	} else {
+		counter.Inc()
+	}
+
+	return nil
+}
+
+// SetupWithManager initializes the CertificateRequest controller into the
+// controller runtime.
+func (r *CertificateRequestReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	r.recorder = mgr.GetEventRecorderFor("certificateRequestController")
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&cmapi.CertificateRequest{}).
+		Complete(r)
 }
 
 func (r *CertificateRequestReconciler) setStatus(ctx context.Context, cr *cmapi.CertificateRequest, status cmmeta.ConditionStatus, reason, message string, args ...interface{}) error {
