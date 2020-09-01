@@ -32,6 +32,8 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
 // CertificateRequestReconciler reconciles a DigicertIssuer object.
@@ -155,26 +157,28 @@ func (r *CertificateRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result,
 		annotations := cr.ObjectMeta.GetAnnotations()
 		annotations["cert-manager.io/digicert-order-id"] = fmt.Sprintf("%d", order.ID)
 		cr.ObjectMeta.SetAnnotations(annotations)
-		r.Client.Update(ctx, cr)
 	}
 
 	if order.CertificateID > 0 {
 		annotations := cr.ObjectMeta.GetAnnotations()
 		annotations["cert-manager.io/digicert-cert-id"] = fmt.Sprintf("%d", order.CertificateID)
 		cr.ObjectMeta.SetAnnotations(annotations)
-		r.Client.Update(ctx, cr)
 	}
 
 	if len(caPEM) > 0 && len(certPEM) > 0 {
 		cr.Status.CA = caPEM
 		cr.Status.Certificate = certPEM
 		err = r.setStatus(ctx, cr, cmmeta.ConditionTrue, cmapi.CertificateRequestReasonIssued, "Certificate issued")
-	} else if order.CertificateID > 0 || order.ID > 0 {
+	} else if order.CertificateID > 0 {
 		err = r.setStatus(ctx, cr, cmmeta.ConditionFalse, cmapi.CertificateRequestReasonPending, "Certificate request pending")
+		r.Client.Update(ctx, cr) // Update annontations
 		return ctrl.Result{Requeue: true, RequeueAfter: r.BackoffDurationProvisionerNotReady}, err
 	} else {
 		err = r.setStatus(ctx, cr, cmmeta.ConditionUnknown, cmapi.CertificateRequestReasonFailed, "Certificate request failed")
 	}
+
+	// Update annontations
+	r.Client.Update(ctx, cr)
 
 	return ctrl.Result{}, err
 }
@@ -206,6 +210,30 @@ func isCertificateRequestPending(cr *cmapi.CertificateRequest) bool {
 	return false
 }
 
+func isCertificateRequestIssued(cr *cmapi.CertificateRequest) bool {
+	status := cr.Status
+
+	for _, condition := range status.Conditions {
+		if condition.Reason == "Issued" {
+			return true
+		}
+	}
+
+	return false
+}
+
+func isCertificateRequestStatusTrue(cr *cmapi.CertificateRequest) bool {
+	status := cr.Status
+
+	for _, condition := range status.Conditions {
+		if condition.Status == "True" {
+			return true
+		}
+	}
+
+	return false
+}
+
 func increaseCounterMetric(cv *prometheus.CounterVec, labels ...string) error {
 	counter, err := cv.GetMetricWithLabelValues(labels...)
 
@@ -221,9 +249,19 @@ func increaseCounterMetric(cv *prometheus.CounterVec, labels ...string) error {
 // SetupWithManager initializes the CertificateRequest controller into the
 // controller runtime.
 func (r *CertificateRequestReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	filter := predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			cr := e.ObjectNew.(*cmapi.CertificateRequest)
+			return !isCertificateRequestStatusTrue(cr) ||
+				!isCertificateRequestIssued(cr) ||
+				len(cr.Status.Certificate) == 0
+		},
+	}
+
 	r.recorder = mgr.GetEventRecorderFor("certificateRequestController")
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&cmapi.CertificateRequest{}).
+		WithEventFilter(filter).
 		Complete(r)
 }
 
