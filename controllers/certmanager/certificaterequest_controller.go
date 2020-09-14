@@ -46,6 +46,7 @@ type CertificateRequestReconciler struct {
 	recorder                           record.EventRecorder
 	DefaultProviderNamespace           string
 	MetricRequestsPending              *prometheus.CounterVec
+	MetricRequestErrors                *prometheus.CounterVec
 	MetricIssuerNotReady               *prometheus.CounterVec
 }
 
@@ -66,7 +67,6 @@ func (r *CertificateRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result,
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
 		}
-
 		log.Error(err, "failed to retrieve CertificateRequest resource")
 		return ctrl.Result{}, err
 	}
@@ -97,6 +97,15 @@ func (r *CertificateRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result,
 		if err != nil {
 			log.Error(err, "No DigicertIssuer resource found", "namespace", r.DefaultProviderNamespace, "name", cr.Spec.IssuerRef.Name)
 			_ = r.setStatus(ctx, cr, cmmeta.ConditionFalse, cmapi.CertificateRequestReasonPending, "Failed to retrieve DigicertIssuer resource %s: %v", issNamespaceName, err)
+
+			if err2 := increaseCounterMetric(
+				r.MetricIssuerNotReady,
+				issNamespaceName.Namespace+"/"+issNamespaceName.Name,
+				"Failed to retrieve DigicertIssuer resource",
+			); err2 != nil {
+				log.Error(err2, "Could not increase issuer not ready metric.")
+			}
+
 			return ctrl.Result{}, err
 		}
 	}
@@ -105,6 +114,15 @@ func (r *CertificateRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result,
 		err := fmt.Errorf("resource %s is not ready", issNamespaceName)
 		log.Error(err, "issuers is not ready")
 		_ = r.setStatus(ctx, cr, cmmeta.ConditionFalse, cmapi.CertificateRequestReasonPending, "DigicertIssuer resource %s is not Ready", issNamespaceName)
+
+		if err2 := increaseCounterMetric(
+			r.MetricIssuerNotReady,
+			issNamespaceName.Namespace+"/"+issNamespaceName.Name,
+			"DigicertIssuer resource is not ready",
+		); err2 != nil {
+			log.Error(err2, "Could not increase issuer not ready metric.")
+		}
+
 		return ctrl.Result{Requeue: true, RequeueAfter: r.BackoffDurationProvisionerNotReady}, err
 	}
 
@@ -114,6 +132,15 @@ func (r *CertificateRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result,
 		err := fmt.Errorf("provisioner %s not found", issNamespaceName)
 		log.Error(err, "failed to load provisioner for DigicertIssuer resource")
 		_ = r.setStatus(ctx, cr, cmmeta.ConditionFalse, cmapi.CertificateRequestReasonPending, "Failed to load provisioner for DigicertIssuer resource %s", issNamespaceName)
+
+		if err2 := increaseCounterMetric(
+			r.MetricIssuerNotReady,
+			issNamespaceName.Namespace+"/"+issNamespaceName.Name,
+			"Failed to load provisioner",
+		); err2 != nil {
+			log.Error(err2, "Could not increase issuer not ready metric.")
+		}
+
 		return ctrl.Result{Requeue: true, RequeueAfter: r.BackoffDurationProvisionerNotReady}, err
 	}
 
@@ -131,6 +158,7 @@ func (r *CertificateRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result,
 				cr.ObjectMeta.Name,
 				cr.ObjectMeta.GetAnnotations()["cert-manager.io/certificate-name"],
 				cr.ObjectMeta.GetAnnotations()["cert-manager.io/private-key-secret-name"],
+				cr.ObjectMeta.GetAnnotations()["cert-manager.io/digicert-order-id"],
 			)
 			if err2 != nil {
 				log.Error(err2, "Could not increase request pending metric.")
@@ -150,6 +178,17 @@ func (r *CertificateRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result,
 	caPEM, certPEM, order, err := provisioner.Sign(ctx, cr)
 	if err != nil {
 		log.Error(err, "failed to sign certificate request")
+
+		if err2 := increaseCounterMetric(
+			r.MetricRequestErrors,
+			cr.ObjectMeta.Name,
+			cr.ObjectMeta.GetAnnotations()["cert-manager.io/certificate-name"],
+			cr.ObjectMeta.GetAnnotations()["cert-manager.io/private-key-secret-name"],
+			"Failed to sign certificate request",
+		); err2 != nil {
+			log.Error(err2, "Could not increase request error metric.")
+		}
+
 		return ctrl.Result{}, r.setStatus(ctx, cr, cmmeta.ConditionFalse, cmapi.CertificateRequestReasonFailed, "Failed to sign certificate request: %v", err)
 	}
 
@@ -174,6 +213,15 @@ func (r *CertificateRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result,
 		r.Client.Update(ctx, cr) // Update annontations
 		return ctrl.Result{Requeue: true, RequeueAfter: r.BackoffDurationProvisionerNotReady}, err
 	} else {
+		if err2 := increaseCounterMetric(
+			r.MetricRequestErrors,
+			cr.ObjectMeta.Name,
+			cr.ObjectMeta.GetAnnotations()["cert-manager.io/certificate-name"],
+			cr.ObjectMeta.GetAnnotations()["cert-manager.io/private-key-secret-name"],
+			"Certificate request failed",
+		); err2 != nil {
+			log.Error(err2, "Could not increase request error metric.")
+		}
 		err = r.setStatus(ctx, cr, cmmeta.ConditionUnknown, cmapi.CertificateRequestReasonFailed, "Certificate request failed")
 	}
 

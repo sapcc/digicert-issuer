@@ -51,11 +51,24 @@ var (
 			"certificate_request",
 			"certificate",
 			"secret",
+			"order_id",
+		},
+	)
+	metricRequestErrors = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "digicertissuer_request_errors_total",
+			Help: "Number of errors while issuing a certificate",
+		},
+		[]string{
+			"certificate_request",
+			"certificate",
+			"secret",
+			"reason",
 		},
 	)
 	metricIssuerNotReady = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "digicertissuer_not_ready",
+			Name: "digicertissuer_not_ready_total",
 			Help: "Increases when digicert-issuer is not ready",
 		},
 		[]string{
@@ -145,6 +158,7 @@ func main() {
 		BackoffDurationRequestPending:      backoffDurationRequestPending,
 		DefaultProviderNamespace:           defaultProviderNamespace,
 		MetricRequestsPending:              metricRequestsPending,
+		MetricRequestErrors:                metricRequestErrors,
 		MetricIssuerNotReady:               metricIssuerNotReady,
 	}).SetupWithManager(mgr)
 	handleError(err, "unable to initialize controller", "controller", "certificateRequest")
