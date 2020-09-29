@@ -48,6 +48,7 @@ type CertificateRequestReconciler struct {
 	MetricRequestsPending              *prometheus.CounterVec
 	MetricRequestErrors                *prometheus.CounterVec
 	MetricIssuerNotReady               *prometheus.CounterVec
+	DisableRootCA                      bool
 }
 
 // +kubebuilder:rbac:groups=cert-manager.io,resources=certificaterequests,verbs=get;list;watch;update
@@ -149,7 +150,7 @@ func (r *CertificateRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result,
 		log.V(4).Info("CertificateRequest is in pending state, trying to download certificate.", "name", cr.ObjectMeta.Name)
 		caPEM, certPEM, err := provisioner.Download(ctx, cr)
 
-		if err != nil || len(caPEM) < 1 || len(certPEM) < 1 {
+		if err != nil || len(certPEM) < 1 {
 			log.V(4).Info("Download of pending certificate failed, reqeueing.", "name", cr.ObjectMeta.Name)
 			_ = r.setStatus(ctx, cr, cmmeta.ConditionFalse, cmapi.CertificateRequestReasonPending, "Certificate request pending")
 
@@ -167,7 +168,9 @@ func (r *CertificateRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result,
 			return ctrl.Result{Requeue: true, RequeueAfter: r.BackoffDurationRequestPending}, err
 		}
 
-		cr.Status.CA = caPEM
+		if len(caPEM) > 0 && !r.DisableRootCA {
+			cr.Status.CA = caPEM
+		}
 		cr.Status.Certificate = certPEM
 		err = r.setStatus(ctx, cr, cmmeta.ConditionTrue, cmapi.CertificateRequestReasonIssued, "Certificate issued")
 
@@ -204,8 +207,10 @@ func (r *CertificateRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result,
 		cr.ObjectMeta.SetAnnotations(annotations)
 	}
 
-	if len(caPEM) > 0 && len(certPEM) > 0 {
-		cr.Status.CA = caPEM
+	if len(certPEM) > 0 {
+		if len(caPEM) > 0 && !r.DisableRootCA {
+			cr.Status.CA = caPEM
+		}
 		cr.Status.Certificate = certPEM
 		err = r.setStatus(ctx, cr, cmmeta.ConditionTrue, cmapi.CertificateRequestReasonIssued, "Certificate issued")
 	} else if order.CertificateID > 0 {

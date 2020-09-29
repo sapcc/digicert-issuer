@@ -97,6 +97,7 @@ func main() {
 		syncPeriod,
 		backoffDurationProvisionerNotReady time.Duration
 		backoffDurationRequestPending time.Duration
+		disableRootCA                 bool
 	)
 
 	flag.StringVar(&namespace, "namespace", "",
@@ -122,6 +123,9 @@ func main() {
 
 	flag.DurationVar(&backoffDurationRequestPending, "backoff-duration-request-pending", 15*time.Minute,
 		"The backoff duration if certificate request is pending.")
+
+	flag.BoolVar(&disableRootCA, "disable-root-ca", false,
+		"Enabling this removes root CA from CertificateRequest")
 
 	flag.Parse()
 
@@ -160,6 +164,7 @@ func main() {
 		MetricRequestsPending:              metricRequestsPending,
 		MetricRequestErrors:                metricRequestErrors,
 		MetricIssuerNotReady:               metricIssuerNotReady,
+		DisableRootCA:                      disableRootCA,
 	}).SetupWithManager(mgr)
 	handleError(err, "unable to initialize controller", "controller", "certificateRequest")
 
