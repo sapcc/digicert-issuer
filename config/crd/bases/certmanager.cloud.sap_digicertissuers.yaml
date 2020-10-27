@@ -64,6 +64,9 @@ spec:
                   description: CACertID is the ID of the CA if multiple CA certificates
                     are configured in the (sub-)account.
                   type: string
+                containerID:
+                  description: ContainerID is the ID of the division
+                  type: integer
                 disableRenewalNotifications:
                   description: DisableRenewalNotifications disables email renewal
                     notifications for expiring certificates.

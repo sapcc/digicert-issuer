@@ -24,6 +24,7 @@ type CertCentral struct {
 	disableRenewalNotifications bool
 	orderType     certcentral.OrderType
 	paymentMethod certcentral.PaymentMethod
+	containerID   int
 }
 
 func (c CertCentral) GetName() string {
@@ -81,6 +82,11 @@ func New(issuer *v1beta1.DigicertIssuer, apiToken string) (*CertCentral, error) 
 		paymentMethod = m
 	}
 
+	var containerID int
+	if issuer.Spec.Provisioner.ContainerID != nil {
+		containerID = *issuer.Spec.Provisioner.ContainerID
+	}
+
 	return &CertCentral{
 		name:                        fmt.Sprintf("%s/%s", issuer.GetName(), issuer.GetNamespace()),
 		client:                      client,
@@ -92,6 +98,7 @@ func New(issuer *v1beta1.DigicertIssuer, apiToken string) (*CertCentral, error) 
 		disableRenewalNotifications: disableRenewalNotifications,
 		orderType:                   orderType,
 		paymentMethod:               paymentMethod,
+		containerID:                 containerID,
 	}, nil
 }
 
@@ -124,7 +131,12 @@ func (c *CertCentral) Sign(ctx context.Context, cr *certmanagerv1alpha2.Certific
 		DisableRenewalNotifications: c.disableRenewalNotifications,
 		PaymentMethod:               c.paymentMethod,
 		SkipApproval:                c.skipApproval,
-		Organization:                &certcentral.Organization{ID: c.organizationID},
+		Organization: &certcentral.Organization{
+			ID: c.organizationID,
+		},
+		Container: &certcentral.Container{
+			ID: c.containerID,
+		},
 	}, c.orderType)
 	if err != nil {
 		return nil, nil, nil, err

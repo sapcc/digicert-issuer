@@ -86,6 +86,7 @@ DigiCertProvisioner contains the DigiCert provisioner configuration.
 | paymentMethod | PaymentMethod is the configured payment method in the Digicert account. | string | false |
 | skipApproval | SkipApproval skips the approval of the certificate. | *bool | false |
 | orderType | OrderType is the certificate order type. | string | false |
+| containerID | ContainerID is the ID of the division | *int | false |
 
 [Back to TOC](#table-of-contents)
 

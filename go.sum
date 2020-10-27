@@ -339,6 +339,8 @@ github.com/sapcc/go-certcentral v1.2.3 h1:KOAHrJPrOyUHlEKoadiKDN1sAF+tjcyG6CMPA6
 github.com/sapcc/go-certcentral v1.2.3/go.mod h1:Asbvss/5uWi2Ko5UkM24D2DjMHbV3Exl+OlvQmxcvww=
 github.com/sapcc/go-certcentral v1.2.4 h1:mLQv4Bj+mNFYdOjQ9nMb47W10gNRJoyvKwAasXWYolc=
 github.com/sapcc/go-certcentral v1.2.4/go.mod h1:Asbvss/5uWi2Ko5UkM24D2DjMHbV3Exl+OlvQmxcvww=
+github.com/sapcc/go-certcentral v1.2.5 h1:CdUxppuXVFVqk2jMNvgaIKayv0ev9hn0+T8h/bH6MlU=
+github.com/sapcc/go-certcentral v1.2.5/go.mod h1:Asbvss/5uWi2Ko5UkM24D2DjMHbV3Exl+OlvQmxcvww=
 github.com/sergi/go-diff v1.0.0/go.mod h1:0CfEIISq7TuYL3j771MWULgwwjU+GofnZX9QAmXWZgo=
 github.com/shurcooL/sanitized_anchor_name v1.0.0/go.mod h1:1NzhyTcUVG4SuEtjjoZeVRXNmyL/1OwPU0+IJeTBvfc=
 github.com/sirupsen/logrus v1.2.0/go.mod h1:LxeOpSwHxABJmUn/MG1IvRgCAasNZTLOkJPxbbu5VWo=
@@ -547,6 +549,7 @@ k8s.io/apiserver v0.18.0/go.mod h1:3S2O6FeBBd6XTo0njUrLxiqk8GNy6wWOftjhJcXYnjw=
 k8s.io/cli-runtime v0.18.0/go.mod h1:1eXfmBsIJosjn9LjEBUd2WVPoPAY9XGTqTFcPMIBsUQ=
 k8s.io/client-go v0.18.0 h1:yqKw4cTUQraZK3fcVCMeSa+lqKwcjZ5wtcOIPnxQno4=
 k8s.io/client-go v0.18.0/go.mod h1:uQSYDYs4WhVZ9i6AIoEZuwUggLVEF64HOD37boKAtF8=
+k8s.io/client-go v11.0.0+incompatible h1:LBbX2+lOwY9flffWlJM7f1Ct8V2SRNiMRDFeiwnJo9o=
 k8s.io/code-generator v0.18.0/go.mod h1:+UHX5rSbxmR8kzS+FAv7um6dtYrZokQvjHpDSYRVkTc=
 k8s.io/component-base v0.18.0/go.mod h1:u3BCg0z1uskkzrnAKFzulmYaEpZF7XC9Pf/uFyb1v2c=
 k8s.io/gengo v0.0.0-20190128074634-0689ccc1d7d6/go.mod h1:ezvh/TsK7cY6rbqRK0oQQ8IAqLxYwwyPxAX1Pzy0ii0=

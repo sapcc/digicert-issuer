@@ -63,6 +63,9 @@ type DigicertProvisioner struct {
 
 	// OrderType is the certificate order type.
 	OrderType string `json:"orderType,omitempty"`
+
+	// ContainerID is the ID of the division
+	ContainerID *int `json:"containerID,omitempty"`
 }
 
 // SecretKeySelector references a secret in the same namespace containing sensitive configuration.
