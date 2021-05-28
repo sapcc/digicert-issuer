@@ -1,5 +1,5 @@
 # Image URL to use all building/pushing image targets
-IMG ?= keppel.eu-de-1.cloud.sap/ccloud/digicert-issuer
+IMG ?= sapcc/digicert-issuer
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true,crdVersions=v1beta1"
 
