@@ -26,7 +26,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 
-	certmanagerv1alpha2 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha2"
+	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	certmanagerv1beta1 "github.com/sapcc/digicert-issuer/apis/certmanager/v1beta1"
 	certmanagerv1beta1controller "github.com/sapcc/digicert-issuer/controllers/certmanager"
 	"github.com/sapcc/digicert-issuer/pkg/version"
@@ -44,7 +44,7 @@ var (
 
 func init() {
 	_ = clientgoscheme.AddToScheme(scheme)
-	_ = certmanagerv1alpha2.AddToScheme(scheme)
+	_ = certmanagerv1.AddToScheme(scheme)
 	_ = certmanagerv1beta1.AddToScheme(scheme)
 	// +kubebuilder:scaffold:scheme
 }

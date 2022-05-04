@@ -4,8 +4,7 @@ import (
 	"context"
 	"crypto/x509"
 	"fmt"
-
-	certmanagerv1alpha2 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha2"
+	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/sapcc/digicert-issuer/apis/certmanager/v1beta1"
 	certcentral "github.com/sapcc/go-certcentral"
 )
@@ -102,8 +101,8 @@ func New(issuer *v1beta1.DigicertIssuer, apiToken string) (*CertCentral, error) 
 	}, nil
 }
 
-func (c *CertCentral) Sign(ctx context.Context, cr *certmanagerv1alpha2.CertificateRequest) ([]byte, []byte, *certcentral.Order, error) {
-	certReq, err := decodeCertificateRequest(cr.Spec.CSRPEM)
+func (c *CertCentral) Sign(ctx context.Context, cr *certmanagerv1.CertificateRequest) ([]byte, []byte, *certcentral.Order, error) {
+	certReq, err := decodeCertificateRequest(cr.Spec.Request)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -121,7 +120,7 @@ func (c *CertCentral) Sign(ctx context.Context, cr *certmanagerv1alpha2.Certific
 		Certificate: certcentral.Certificate{
 			CommonName:        getCommonName(certReq),
 			DNSNames:          sans,
-			CSR:               string(cr.Spec.CSRPEM),
+			CSR:               string(cr.Spec.Request),
 			ServerPlatform:    certcentral.ServerPlatformForType(certcentral.ServerPlatformTypes.Nginx),
 			SignatureHash:     certcentral.SignatureHashes.SHA256,
 			CaCertID:          c.caCertID,
@@ -159,16 +158,16 @@ func (c *CertCentral) Sign(ctx context.Context, cr *certmanagerv1alpha2.Certific
 	return rootCAPEM, crtChainPEMs, orderResponse, nil
 }
 
-func (c *CertCentral) Download(ctx context.Context, cr *certmanagerv1alpha2.CertificateRequest) ([]byte, []byte, error) {
+func (c *CertCentral) Download(ctx context.Context, cr *certmanagerv1.CertificateRequest) ([]byte, []byte, error) {
 	certID := cr.GetAnnotations()["cert-manager.io/digicert-cert-id"]
 	if certID == "" {
 		// TODO: get cert_id by order_id if missing
-		return nil, nil, fmt.Errorf("No cert id given for %s", cr.ObjectMeta.Name)
+		return nil, nil, fmt.Errorf("no cert id given for %s", cr.ObjectMeta.Name)
 	}
 
 	chain, err := c.client.GetCertificateChain(certID)
 	if err != nil {
-		return nil, nil, fmt.Errorf("Error receiving certificate chain %s for request %s: %s", certID, cr.ObjectMeta.Name, err)
+		return nil, nil, fmt.Errorf("error receiving certificate chain %s for request %s: %s", certID, cr.ObjectMeta.Name, err)
 	}
 
 	crtChain := make([]*x509.Certificate, 0)
