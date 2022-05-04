@@ -5,7 +5,7 @@ DigiCert Issuer
 
 # Prerequisites
 
-The cert-manager and its `cert-manager.io/v1alpha2` CRDs needs to be installed in the selected cluster.
+The cert-manager and its `cert-manager.io/v1` CRDs needs to be installed in the selected cluster.
 
 # Installation & Configuration
 
