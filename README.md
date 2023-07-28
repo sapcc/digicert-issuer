@@ -9,10 +9,11 @@ The cert-manager and its `cert-manager.io/v1` CRDs needs to be installed in the 
 
 # Installation & Configuration
 
+The container image can be found here: [ghcr.io/sapcc/digicert-issuer](https://github.com/sapcc/digicert-issuer/pkgs/container/digicert-issuer).
+
 1) Using [Helm](https://helm.sh)  
    The [DigiCert Issuer Helm chart](https://github.com/sapcc/helm-charts/tree/master/system/digicert-issuer) can be used for **production** environments.  
    Additional documentation on configuration options is provided within the chart.
-   
 
 2) Using [Kustomize](https://kustomize.io)  
    Use the [Kustomize resources](config) or run `make deploy` to install the DigiCert issuer in the current cluster.
