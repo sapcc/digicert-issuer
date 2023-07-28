@@ -18,6 +18,6 @@ jobs:
       with:
         registry: ghcr.io
         username: ${{github.actor}}
-        password: ${{secrets.GITHUB_TOKEN}}
+        password: ${{secrets.GH_TOKEN}}
     - name: Build and publish the Docker image
       run: make docker-build docker-push
