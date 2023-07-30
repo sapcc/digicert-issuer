@@ -1,5 +1,5 @@
 # Image URL to use all building/pushing image targets
-IMG ?= keppel.eu-de-1.cloud.sap/ccloud/digicert-issuer
+IMG ?= ghcr.io/sapcc/digicert-issuer
 CRD_OPTIONS ?= "crd:crdVersions=v1"
 
 # Temporary directory for tools
