@@ -65,7 +65,7 @@ func main() {
 	flag.StringVar(&namespace, "namespace", "",
 		"Confine operator to the given namespace.")
 
-	flag.StringVar(&defaultProviderNamespace, "default-provider-namespace", "kube-system",
+	flag.StringVar(&defaultProviderNamespace, "default-provider-namespace", getValueFromEnvironmentOrDefault("POD_NAMESPACE", "kube-system"),
 		"Namespace to fall back if provider does not exists.")
 
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080",
@@ -139,4 +139,11 @@ func handleError(err error, message string, keysAndVals ...interface{}) {
 		setupLog.Error(err, message, keysAndVals...)
 		os.Exit(1)
 	}
+}
+
+func getValueFromEnvironmentOrDefault(envKey, defaultValue string) string {
+	if val, ok := os.LookupEnv(envKey); ok {
+		return val
+	}
+	return defaultValue
 }

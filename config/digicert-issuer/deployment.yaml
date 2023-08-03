@@ -28,4 +28,9 @@ spec:
           requests:
             cpu: 100m
             memory: 60Mi
+        env:
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
       terminationGracePeriodSeconds: 10
