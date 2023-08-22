@@ -110,36 +110,27 @@ set-image:
 release: VERSION=$(shell cat VERSION)
 release: git-tag-release set-image git-push-tag docker-build docker-push
 
+.PHONY: vendor
+vendor:
+	go mod download
+
+## Tool Binaries
+CONTROLLER_TOOLS_VERSION ?= v0.3.0
+CONTROLLER_GEN ?= $(TOOLS_BIN_DIR)/controller-gen
+DOC_GEN ?= $(TOOLS_BIN_DIR)/doc-gen
+
 $(TOOLS_BIN_DIR):
 	mkdir -p $(TOOLS_BIN_DIR)
 
 clean:
 	rm -rf $(TOOLS_BIN_DIR) ./bin
 
-.PHONY: vendor
-vendor:
-	go mod download
+.PHONY: controller-gen
+controller-gen: $(CONTROLLER_GEN) ## Download controller-gen locally if necessary.
+$(CONTROLLER_GEN): $(TOOLS_BIN_DIR)
+	GOBIN=$(TOOLS_BIN_DIR) go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_TOOLS_VERSION)
 
-# Find or download controller-gen.
-controller-gen: VERSION=v0.3.0
-controller-gen: $(TOOLS_BIN_DIR)
-ifeq (,$(wildcard $(TOOLS_BIN_DIR)/controller-gen))
-	@{ \
-	set -e ;\
-	CONTROLLER_GEN_TMP_DIR=$$(mktemp -d) ;\
-	cd $$CONTROLLER_GEN_TMP_DIR ;\
-	go mod init tmp ;\
-	GOBIN=$(TOOLS_BIN_DIR) go get sigs.k8s.io/controller-tools/cmd/controller-gen@${VERSION} ;\
-	rm -rf $$CONTROLLER_GEN_TMP_DIR ;\
-	}
-endif
-CONTROLLER_GEN=$(TOOLS_BIN_DIR)/controller-gen
-
-doc-gen: $(TOOLS_BIN_DIR)
-ifeq (,$(wildcard $(TOOLS_BIN_DIR)/doc-gen))
-	@{ \
-	set -e ;\
-	GOBIN=$(TOOLS_BIN_DIR) go install ./cmd/doc-gen ;\
-	}
-endif
-DOC_GEN=$(TOOLS_BIN_DIR)/doc-gen
+.PHONY: doc-gen
+doc-gen: $(DOC_GEN)
+$(DOC_GEN): $(TOOLS_BIN_DIR)
+	GOBIN=$(TOOLS_BIN_DIR) go install ./cmd/doc-gen
