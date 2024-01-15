@@ -25,7 +25,6 @@ import (
 	certmanagerv1beta1 "github.com/sapcc/digicert-issuer/apis/certmanager/v1beta1"
 	"github.com/sapcc/digicert-issuer/pkg/k8sutils"
 	"github.com/sapcc/digicert-issuer/pkg/provisioners"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -34,8 +33,7 @@ import (
 // DigicertIssuerReconciler reconciles a DigicertIssuer object
 type DigicertIssuerReconciler struct {
 	client.Client
-	Log      logr.Logger
-	Scheme   *runtime.Scheme
+	log      logr.Logger
 	recorder record.EventRecorder
 }
 
@@ -45,7 +43,7 @@ type DigicertIssuerReconciler struct {
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
 func (r *DigicertIssuerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := r.Log.WithValues("digicertissuer", req.NamespacedName)
+	logger := r.log.WithValues("digicertissuer", req.NamespacedName)
 
 	issuer := new(certmanagerv1beta1.DigicertIssuer)
 	if err := r.Client.Get(ctx, req.NamespacedName, issuer); err != nil {
@@ -101,6 +99,8 @@ func (r *DigicertIssuerReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 func (r *DigicertIssuerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.recorder = mgr.GetEventRecorderFor("digicertIssuer")
+	r.log = mgr.GetLogger().WithName("controllers").WithName("DigicertIssuer")
+	r.Client = mgr.GetClient()
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&certmanagerv1beta1.DigicertIssuer{}).
 		Complete(r)

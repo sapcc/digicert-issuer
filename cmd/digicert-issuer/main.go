@@ -31,9 +31,11 @@ import (
 	certmanagerv1beta1controller "github.com/sapcc/digicert-issuer/controllers/certmanager"
 	"github.com/sapcc/digicert-issuer/pkg/version"
 	"k8s.io/apimachinery/pkg/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -43,42 +45,30 @@ var (
 )
 
 func init() {
-	_ = clientgoscheme.AddToScheme(scheme)
-	_ = certmanagerv1.AddToScheme(scheme)
-	_ = certmanagerv1beta1.AddToScheme(scheme)
 	// +kubebuilder:scaffold:scheme
+	for _, addToSchemeFunc := range []func(s *runtime.Scheme) error{
+		clientgoscheme.AddToScheme,
+		certmanagerv1.AddToScheme,
+		certmanagerv1beta1.AddToScheme,
+	} {
+		utilruntime.Must(addToSchemeFunc(scheme))
+	}
 }
 
 func main() {
 	var (
-		namespace                string
-		defaultProviderNamespace string
-		metricsAddr              string
-		enableLeaderElection     bool
-		printVersionAndExit      bool
-		syncPeriod,
+		metricsAddr                        string
+		printVersionAndExit                bool
 		backoffDurationProvisionerNotReady time.Duration
-		backoffDurationRequestPending time.Duration
-		disableRootCA                 bool
+		backoffDurationRequestPending      time.Duration
+		disableRootCA                      bool
 	)
-
-	flag.StringVar(&namespace, "namespace", "",
-		"Confine operator to the given namespace.")
-
-	flag.StringVar(&defaultProviderNamespace, "default-provider-namespace", getValueFromEnvironmentOrDefault("POD_NAMESPACE", "kube-system"),
-		"Namespace to fall back if provider does not exists.")
 
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080",
 		"The address the metric endpoint binds to.")
 
-	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
-		"Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
-
 	flag.BoolVar(&printVersionAndExit, "version", false,
 		"Print version and exit.")
-
-	flag.DurationVar(&syncPeriod, "sync-period", 15*time.Minute,
-		"Synchronization period after which caches are invalidated.")
 
 	flag.DurationVar(&backoffDurationProvisionerNotReady, "backoff-duration-provisioner-not-ready", 10*time.Second,
 		"The backoff duration if the provisioner is not ready.")
@@ -99,30 +89,22 @@ func main() {
 	ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:             scheme,
-		MetricsBindAddress: metricsAddr,
-		Port:               9443,
-		LeaderElection:     enableLeaderElection,
-		LeaderElectionID:   "9f7013bc.cloud.sap",
-		Namespace:          namespace,
-		SyncPeriod:         &syncPeriod,
+		Scheme: scheme,
+		Metrics: metricsserver.Options{
+			BindAddress: metricsAddr,
+		},
+		LeaderElection:   true,
+		LeaderElectionID: "digicertissuer.cloud.sap",
 	})
 	handleError(err, "unable to start manager")
 
-	err = (&certmanagerv1beta1controller.DigicertIssuerReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("DigicertIssuer"),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr)
+	err = (&certmanagerv1beta1controller.DigicertIssuerReconciler{}).SetupWithManager(mgr)
 	handleError(err, "unable to initialize controller", "controller", "digicertIssuer")
 
 	err = (&certmanagerv1beta1controller.CertificateRequestReconciler{
-		Client:                             mgr.GetClient(),
-		Log:                                ctrl.Log.WithName("controllers").WithName("CertificateRequest"),
-		Scheme:                             mgr.GetScheme(),
 		BackoffDurationProvisionerNotReady: backoffDurationProvisionerNotReady,
 		BackoffDurationRequestPending:      backoffDurationRequestPending,
-		DefaultProviderNamespace:           defaultProviderNamespace,
+		DefaultProviderNamespace:           getValueFromEnvironmentOrDefault("POD_NAMESPACE", "kube-system"),
 		DisableRootCA:                      disableRootCA,
 	}).SetupWithManager(mgr)
 	handleError(err, "unable to initialize controller", "controller", "certificateRequest")

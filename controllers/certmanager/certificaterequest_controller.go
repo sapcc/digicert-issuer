@@ -29,7 +29,6 @@ import (
 	"github.com/sapcc/digicert-issuer/pkg/provisioners"
 	core "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -41,8 +40,7 @@ import (
 // CertificateRequestReconciler reconciles a DigicertIssuer object.
 type CertificateRequestReconciler struct {
 	client.Client
-	Log                                logr.Logger
-	Scheme                             *runtime.Scheme
+	log                                logr.Logger
 	BackoffDurationProvisionerNotReady time.Duration
 	BackoffDurationRequestPending      time.Duration
 	recorder                           record.EventRecorder
@@ -63,6 +61,8 @@ func (r *CertificateRequestReconciler) SetupWithManager(mgr ctrl.Manager) error 
 	}
 
 	r.recorder = mgr.GetEventRecorderFor("certificateRequestController")
+	r.log = mgr.GetLogger().WithName("controllers").WithName("CertificateRequest")
+	r.Client = mgr.GetClient()
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&cmapi.CertificateRequest{}).
 		WithEventFilter(filter).
@@ -76,7 +76,7 @@ func (r *CertificateRequestReconciler) SetupWithManager(mgr ctrl.Manager) error 
 // CertificateRequest resource, and it will sign the CertificateRequest with the
 // provisioner in the DigicertIssuer.
 func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log := r.Log.WithValues("certificaterequest", req.NamespacedName)
+	log := r.log.WithValues("certificaterequest", req.NamespacedName)
 
 	// Fetch the CertificateRequest resource being reconciled.
 	// Just ignore the request if the certificate request has been deleted.
