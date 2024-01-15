@@ -48,10 +48,7 @@ func (r *DigicertIssuerReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	logger := r.Log.WithValues("digicertissuer", req.NamespacedName)
 
 	issuer := new(certmanagerv1beta1.DigicertIssuer)
-	if err := r.Client.Get(ctx, client.ObjectKey{
-		Namespace: req.Namespace,
-		Name:      req.Name,
-	}, issuer); err != nil {
+	if err := r.Client.Get(ctx, req.NamespacedName, issuer); err != nil {
 		logger.Error(err, "failed to get issuer")
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
