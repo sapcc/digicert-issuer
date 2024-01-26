@@ -80,14 +80,15 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 
 	// Fetch the CertificateRequest resource being reconciled.
 	// Just ignore the request if the certificate request has been deleted.
-	cr := new(cmapi.CertificateRequest)
-	if err := r.Client.Get(ctx, req.NamespacedName, cr); err != nil {
+	curCR := new(cmapi.CertificateRequest)
+	if err := r.Client.Get(ctx, req.NamespacedName, curCR); err != nil {
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
 		}
 		log.Error(err, "failed to retrieve CertificateRequest resource")
 		return ctrl.Result{}, err
 	}
+	cr := curCR.DeepCopy()
 
 	// Check the CertificateRequest's issuerRef and if it does not match the api
 	// group name, log a message at a debug level and stop processing.
@@ -114,7 +115,7 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 		err = r.Client.Get(ctx, issNamespaceName, iss)
 		if err != nil {
 			log.Error(err, "No DigicertIssuer resource found", "namespace", r.DefaultProviderNamespace, "name", cr.Spec.IssuerRef.Name)
-			_ = r.setStatus(ctx, cr, cmmeta.ConditionFalse, cmapi.CertificateRequestReasonPending, "Failed to retrieve DigicertIssuer resource %s: %v", issNamespaceName, err)
+			_ = r.setStatus(ctx, cr, curCR, cmmeta.ConditionFalse, cmapi.CertificateRequestReasonPending, "Failed to retrieve DigicertIssuer resource %s: %v", issNamespaceName, err)
 			metricIssuerNotReady.WithLabelValues(issNamespaceName.String(), "issuer not found").Inc()
 			return ctrl.Result{}, err
 		}
@@ -123,7 +124,7 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 	if !isDigicertIssuerReady(iss) {
 		log.Info("issuer is not ready", "name", issNamespaceName.String())
 		metricIssuerNotReady.WithLabelValues(issNamespaceName.String(), "issuer not ready").Inc()
-		if err := r.setStatus(ctx, cr, cmmeta.ConditionFalse, cmapi.CertificateRequestReasonPending, "DigicertIssuer resource %s is not Ready", issNamespaceName); err != nil {
+		if err := r.setStatus(ctx, cr, curCR, cmmeta.ConditionFalse, cmapi.CertificateRequestReasonPending, "DigicertIssuer resource %s is not Ready", issNamespaceName); err != nil {
 			return ctrl.Result{}, err
 		}
 		return ctrl.Result{RequeueAfter: r.BackoffDurationProvisionerNotReady}, nil
@@ -134,7 +135,7 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 	if !ok {
 		log.Info("provisioner not found", "name", issNamespaceName)
 		metricIssuerNotReady.WithLabelValues(issNamespaceName.String(), "provisioner not found").Inc()
-		if err := r.setStatus(ctx, cr, cmmeta.ConditionFalse, cmapi.CertificateRequestReasonPending, "Failed to load provisioner for DigicertIssuer resource %s", issNamespaceName); err != nil {
+		if err := r.setStatus(ctx, cr, curCR, cmmeta.ConditionFalse, cmapi.CertificateRequestReasonPending, "Failed to load provisioner for DigicertIssuer resource %s", issNamespaceName); err != nil {
 			return ctrl.Result{}, err
 		}
 		return ctrl.Result{RequeueAfter: r.BackoffDurationProvisionerNotReady}, nil
@@ -147,12 +148,13 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 
 		if err != nil || len(certPEM) < 1 {
 			log.V(4).Info("Download of pending certificate failed, reqeueing.", "name", cr.ObjectMeta.Name)
-			_ = r.setStatus(ctx, cr, cmmeta.ConditionFalse, cmapi.CertificateRequestReasonPending, "Certificate request pending")
+			_ = r.setStatus(ctx, cr, curCR, cmmeta.ConditionFalse, cmapi.CertificateRequestReasonPending, "Certificate request pending")
 			metricRequestsPending.WithLabelValues(cr.ObjectMeta.Name,
 				cr.ObjectMeta.GetAnnotations()["cert-manager.io/certificate-name"],
 				cr.ObjectMeta.GetAnnotations()["cert-manager.io/private-key-secret-name"],
-				cr.ObjectMeta.GetAnnotations()["cert-manager.io/digicert-order-id"],
+				cr.ObjectMeta.GetAnnotations()["certmanager.cloud.sap/digicert-order-id"],
 			).Inc()
+
 			return ctrl.Result{Requeue: true, RequeueAfter: r.BackoffDurationRequestPending}, err
 		}
 
@@ -160,7 +162,7 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 			cr.Status.CA = caPEM
 		}
 		cr.Status.Certificate = certPEM
-		err = r.setStatus(ctx, cr, cmmeta.ConditionTrue, cmapi.CertificateRequestReasonIssued, "Certificate issued")
+		err = r.setStatus(ctx, cr, curCR, cmmeta.ConditionTrue, cmapi.CertificateRequestReasonIssued, "Certificate issued")
 
 		return ctrl.Result{}, err
 	}
@@ -175,30 +177,33 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 			cr.ObjectMeta.GetAnnotations()["cert-manager.io/private-key-secret-name"],
 			"Failed to sign certificate request",
 		).Inc()
-		return ctrl.Result{}, r.setStatus(ctx, cr, cmmeta.ConditionFalse, cmapi.CertificateRequestReasonFailed, "Failed to sign certificate request: %v", err)
+		return ctrl.Result{}, r.setStatus(ctx, cr, curCR, cmmeta.ConditionFalse, cmapi.CertificateRequestReasonFailed, "Failed to sign certificate request: %v", err)
 	}
 
+	// Patch annotations.
+	annotations := cr.ObjectMeta.GetAnnotations()
+	annotations["certmanager.cloud.sap/digicert-issuer"] = "true"
 	if order.ID > 0 {
-		annotations := cr.ObjectMeta.GetAnnotations()
-		annotations["cert-manager.io/digicert-order-id"] = fmt.Sprintf("%d", order.ID)
-		cr.ObjectMeta.SetAnnotations(annotations)
+		annotations["certmanager.cloud.sap/digicert-order-id"] = fmt.Sprintf("%d", order.ID)
 	}
-
 	if order.CertificateID > 0 {
-		annotations := cr.ObjectMeta.GetAnnotations()
-		annotations["cert-manager.io/digicert-cert-id"] = fmt.Sprintf("%d", order.CertificateID)
-		cr.ObjectMeta.SetAnnotations(annotations)
+		annotations["certmanager.cloud.sap/digicert-cert-id"] = fmt.Sprintf("%d", order.CertificateID)
+	}
+	cr.ObjectMeta.SetAnnotations(annotations)
+	if err := r.Client.Patch(ctx, cr, client.MergeFrom(curCR)); err != nil {
+		log.Error(err, "failed to update certificate request annotations")
+		return ctrl.Result{}, err
 	}
 
+	// Update CertificateRequest status
 	if len(certPEM) > 0 {
 		if len(caPEM) > 0 && !r.DisableRootCA {
 			cr.Status.CA = caPEM
 		}
 		cr.Status.Certificate = certPEM
-		err = r.setStatus(ctx, cr, cmmeta.ConditionTrue, cmapi.CertificateRequestReasonIssued, "Certificate issued")
+		err = r.setStatus(ctx, cr, curCR, cmmeta.ConditionTrue, cmapi.CertificateRequestReasonIssued, "Certificate issued")
 	} else if order.CertificateID > 0 {
-		err = r.setStatus(ctx, cr, cmmeta.ConditionFalse, cmapi.CertificateRequestReasonPending, "Certificate request pending")
-		r.Client.Update(ctx, cr) // Update annontations
+		err = r.setStatus(ctx, cr, curCR, cmmeta.ConditionFalse, cmapi.CertificateRequestReasonPending, "Certificate request pending")
 		return ctrl.Result{Requeue: true, RequeueAfter: r.BackoffDurationProvisionerNotReady}, err
 	} else {
 		metricRequestErrors.WithLabelValues(
@@ -207,17 +212,11 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 			cr.ObjectMeta.GetAnnotations()["cert-manager.io/private-key-secret-name"],
 			"Certificate request failed",
 		).Inc()
-		if err = r.setStatus(ctx, cr, cmmeta.ConditionUnknown, cmapi.CertificateRequestReasonFailed, "Certificate request failed"); err != nil {
-			return ctrl.Result{}, err
-		}
+		err = r.setStatus(ctx, cr, curCR, cmmeta.ConditionUnknown, cmapi.CertificateRequestReasonFailed, "Certificate request failed")
 	}
 
-	// Update annotations.
-	if err := r.Client.Update(ctx, cr); err != nil {
-		return ctrl.Result{}, err
-	}
-
-	return ctrl.Result{}, nil
+	// return err from the "r.setStatus" call
+	return ctrl.Result{}, err
 }
 
 func isDigicertIssuerReady(issuer *certmanagerv1beta1.DigicertIssuer) bool {
@@ -237,9 +236,11 @@ func isDigicertIssuerReady(issuer *certmanagerv1beta1.DigicertIssuer) bool {
 
 func isCertificateRequestPending(cr *cmapi.CertificateRequest) bool {
 	status := cr.Status
+	// this is a hack that allows digicert-issuer to distinguish fake ACME pending requests
+	digicertAcquired := cr.ObjectMeta.GetAnnotations()["certmanager.cloud.sap/digicert-issuer"] == "true"
 
 	for _, condition := range status.Conditions {
-		if condition.Reason == "Pending" {
+		if condition.Reason == "Pending" && digicertAcquired {
 			return true
 		}
 	}
@@ -269,7 +270,7 @@ func isCertificateRequestStatusTrue(cr *cmapi.CertificateRequest) bool {
 	return false
 }
 
-func (r *CertificateRequestReconciler) setStatus(ctx context.Context, cr *cmapi.CertificateRequest, status cmmeta.ConditionStatus, reason, message string, args ...interface{}) error {
+func (r *CertificateRequestReconciler) setStatus(ctx context.Context, cr, curCR *cmapi.CertificateRequest, status cmmeta.ConditionStatus, reason, message string, args ...interface{}) error {
 	completeMessage := fmt.Sprintf(message, args...)
 	apiutil.SetCertificateRequestCondition(cr, cmapi.CertificateRequestConditionReady, status, reason, completeMessage)
 
@@ -280,5 +281,5 @@ func (r *CertificateRequestReconciler) setStatus(ctx context.Context, cr *cmapi.
 	}
 	r.recorder.Event(cr, eventType, reason, completeMessage)
 
-	return r.Client.Status().Update(ctx, cr)
+	return r.Client.Status().Patch(ctx, cr, client.MergeFrom(curCR))
 }
