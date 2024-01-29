@@ -175,7 +175,7 @@ func (c *CertCentral) Sign(ctx context.Context, cr *certmanagerv1.CertificateReq
 }
 
 func (c *CertCentral) Download(ctx context.Context, cr *certmanagerv1.CertificateRequest) ([]byte, []byte, error) {
-	certID := cr.GetAnnotations()["cert-manager.io/digicert-cert-id"]
+	certID := cr.GetAnnotations()["certmanager.cloud.sap/digicert-cert-id"]
 	if certID == "" {
 		// TODO: get cert_id by order_id if missing
 		return nil, nil, fmt.Errorf("no cert id given for %s", cr.ObjectMeta.Name)
