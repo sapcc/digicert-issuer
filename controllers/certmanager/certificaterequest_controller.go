@@ -92,7 +92,7 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 
 	// Check the CertificateRequest's issuerRef and if it does not match the api
 	// group name, log a message at a debug level and stop processing.
-	if cr.Spec.IssuerRef.Group != "" && cr.Spec.IssuerRef.Group != certmanagerv1beta1.GroupVersion.Group {
+	if cr.Spec.IssuerRef.Group != certmanagerv1beta1.GroupVersion.Group {
 		log.V(4).Info("resource does not specify an issuerRef group name that we are responsible for", "group", cr.Spec.IssuerRef.Group)
 		return ctrl.Result{}, nil
 	}
