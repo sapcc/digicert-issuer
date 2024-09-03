@@ -6,7 +6,7 @@ toolchain go1.23.0
 
 require (
 	github.com/cert-manager/cert-manager v1.15.3
-	github.com/go-logr/logr v1.4.1
+	github.com/go-logr/logr v1.4.2
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/onsi/ginkgo/v2 v2.17.2
 	github.com/onsi/gomega v1.33.1
