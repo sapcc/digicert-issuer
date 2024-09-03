@@ -1,8 +1,6 @@
 module github.com/sapcc/digicert-issuer
 
-go 1.22.0
-
-toolchain go1.23.0
+go 1.23.0
 
 require (
 	github.com/cert-manager/cert-manager v1.15.3
