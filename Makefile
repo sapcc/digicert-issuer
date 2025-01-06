@@ -115,7 +115,7 @@ vendor:
 	go mod download
 
 ## Tool Binaries
-CONTROLLER_TOOLS_VERSION ?= v0.3.0
+CONTROLLER_TOOLS_VERSION ?= v0.17.0
 CONTROLLER_GEN ?= $(TOOLS_BIN_DIR)/controller-gen
 DOC_GEN ?= $(TOOLS_BIN_DIR)/doc-gen
 
