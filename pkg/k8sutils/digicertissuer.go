@@ -25,7 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func SetDigicertIssuerStatusConditionType(k8sClient client.Client, cur *certmanagerv1beta1.DigicertIssuer, statusType certmanagerv1beta1.ConditionType, status certmanagerv1beta1.ConditionStatus, reason certmanagerv1beta1.ConditionReason, message string) (*certmanagerv1beta1.DigicertIssuer, error) {
+func SetDigicertIssuerStatusConditionType(ctx context.Context, k8sClient client.Client, cur *certmanagerv1beta1.DigicertIssuer, statusType certmanagerv1beta1.ConditionType, status certmanagerv1beta1.ConditionStatus, reason certmanagerv1beta1.ConditionReason, message string) (*certmanagerv1beta1.DigicertIssuer, error) {
 	ts := metav1.NewTime(time.Now().UTC())
 	newCondition := certmanagerv1beta1.DigicertIssuerCondition{
 		Type:               statusType,
@@ -49,7 +49,7 @@ func SetDigicertIssuerStatusConditionType(k8sClient client.Client, cur *certmana
 
 	if new.Status.Conditions == nil || len(new.Status.Conditions) == 0 {
 		new.Status.Conditions = []certmanagerv1beta1.DigicertIssuerCondition{newCondition}
-		return patchDigicertIssuerStatus(k8sClient, cur, new)
+		return patchDigicertIssuerStatus(ctx, k8sClient, cur, new)
 	}
 
 	for idx, curCondition := range new.Status.Conditions {
@@ -58,16 +58,16 @@ func SetDigicertIssuerStatusConditionType(k8sClient client.Client, cur *certmana
 		}
 	}
 
-	return patchDigicertIssuerStatus(k8sClient, cur, new)
+	return patchDigicertIssuerStatus(ctx, k8sClient, cur, new)
 }
 
-func EnsureDigicertIssuerStatusInitialized(k8sClient client.Client, issuer *certmanagerv1beta1.DigicertIssuer) (*certmanagerv1beta1.DigicertIssuer, error) {
+func EnsureDigicertIssuerStatusInitialized(ctx context.Context, k8sClient client.Client, issuer *certmanagerv1beta1.DigicertIssuer) (*certmanagerv1beta1.DigicertIssuer, error) {
 	if isDigicertIssuerReady(issuer) {
 		return issuer, nil
 	}
 
 	return SetDigicertIssuerStatusConditionType(
-		k8sClient, issuer, certmanagerv1beta1.ConditionReady, certmanagerv1beta1.ConditionFalse, "", "",
+		ctx, k8sClient, issuer, certmanagerv1beta1.ConditionReady, certmanagerv1beta1.ConditionFalse, "", "",
 	)
 }
 
@@ -78,9 +78,9 @@ func isDigicertIssuerReady(issuer *certmanagerv1beta1.DigicertIssuer) bool {
 	})
 }
 
-func patchDigicertIssuerStatus(k8sClient client.Client, cur, new *certmanagerv1beta1.DigicertIssuer) (*certmanagerv1beta1.DigicertIssuer, error) {
+func patchDigicertIssuerStatus(ctx context.Context, k8sClient client.Client, cur, new *certmanagerv1beta1.DigicertIssuer) (*certmanagerv1beta1.DigicertIssuer, error) {
 	patch := client.MergeFrom(cur)
-	if err := k8sClient.Status().Patch(context.Background(), new, patch); err != nil {
+	if err := k8sClient.Status().Patch(ctx, new, patch); err != nil {
 		return cur, err
 	}
 

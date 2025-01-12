@@ -51,35 +51,35 @@ func (r *DigicertIssuerReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	issuer, err := k8sutils.EnsureDigicertIssuerStatusInitialized(r.Client, issuer)
+	issuer, err := k8sutils.EnsureDigicertIssuerStatusInitialized(ctx, r.Client, issuer)
 	if err != nil {
 		logger.Error(err, "failed to initialize issuer status")
 	}
 
 	if err := validateDigicertIssuerSpec(issuer.Spec); err != nil {
 		k8sutils.SetDigicertIssuerStatusConditionType(
-			r.Client, issuer, certmanagerv1beta1.ConditionConfigurationError, certmanagerv1beta1.ConditionTrue,
+			ctx, r.Client, issuer, certmanagerv1beta1.ConditionConfigurationError, certmanagerv1beta1.ConditionTrue,
 			certmanagerv1beta1.ConditionReasonInvalidIssuerSpec, err.Error(),
 		)
 		logger.Error(err, "issuer.spec is invalid")
 		return ctrl.Result{}, err
 	}
 	k8sutils.SetDigicertIssuerStatusConditionType(
-		r.Client, issuer, certmanagerv1beta1.ConditionConfigurationError, certmanagerv1beta1.ConditionFalse, "", "",
+		ctx, r.Client, issuer, certmanagerv1beta1.ConditionConfigurationError, certmanagerv1beta1.ConditionFalse, "", "",
 	)
 
 	secretRef := issuer.Spec.Provisioner.APITokenReference
-	digicertAPIToken, err := k8sutils.GetSecretData(r.Client, issuer.GetNamespace(), secretRef.Name, secretRef.Key)
+	digicertAPIToken, err := k8sutils.GetSecretData(ctx, r.Client, issuer.GetNamespace(), secretRef.Name, secretRef.Key)
 	if err != nil {
 		logger.Error(err, "failed to get provisioner secret containing the API token")
 		k8sutils.SetDigicertIssuerStatusConditionType(
-			r.Client, issuer, certmanagerv1beta1.ConditionConfigurationError, certmanagerv1beta1.ConditionTrue,
+			ctx, r.Client, issuer, certmanagerv1beta1.ConditionConfigurationError, certmanagerv1beta1.ConditionTrue,
 			certmanagerv1beta1.ConditionReasonSecretNotFoundOrEmpty, err.Error(),
 		)
 		return ctrl.Result{}, err
 	}
 	k8sutils.SetDigicertIssuerStatusConditionType(
-		r.Client, issuer, certmanagerv1beta1.ConditionConfigurationError, certmanagerv1beta1.ConditionFalse, "", "",
+		ctx, r.Client, issuer, certmanagerv1beta1.ConditionConfigurationError, certmanagerv1beta1.ConditionFalse, "", "",
 	)
 
 	prov, err := provisioners.New(issuer, digicertAPIToken)
@@ -92,7 +92,7 @@ func (r *DigicertIssuerReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	logger.Info("provisioner is ready", "name", prov.GetName())
 
 	_, err = k8sutils.SetDigicertIssuerStatusConditionType(
-		r.Client, issuer, certmanagerv1beta1.ConditionReady, certmanagerv1beta1.ConditionTrue, "", "",
+		ctx, r.Client, issuer, certmanagerv1beta1.ConditionReady, certmanagerv1beta1.ConditionTrue, "", "",
 	)
 	return ctrl.Result{}, err
 }

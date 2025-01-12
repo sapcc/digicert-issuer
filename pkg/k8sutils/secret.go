@@ -25,9 +25,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func GetSecretData(k8sClient client.Client, secretNamespace, secretName, secretDataKey string) (string, error) {
+func GetSecretData(ctx context.Context, k8sClient client.Client, secretNamespace, secretName, secretDataKey string) (string, error) {
 	s := new(corev1.Secret)
-	if err := k8sClient.Get(context.Background(), client.ObjectKey{
+	if err := k8sClient.Get(ctx, client.ObjectKey{
 		Namespace: secretNamespace,
 		Name:      secretName,
 	}, s); err != nil {
