@@ -1,6 +1,8 @@
 DigiCert Issuer
 ---------------
 
+[![REUSE status](https://api.reuse.software/badge/github.com/sapcc/digicert-issuer)](https://api.reuse.software/info/github.com/sapcc/digicert-issuer)
+
 [External Issuer](https://cert-manager.io/docs/configuration/external) extending the [cert-manager](https://cert-manager.io) with the [DigiCert cert-central API](https://dev.digicert.com/services-api/orders/).
 
 # Prerequisites
