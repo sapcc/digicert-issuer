@@ -81,7 +81,8 @@ DigiCertProvisioner contains the DigiCert provisioner configuration.
 | organizationID | OrganizationID is the ID of the organization in Digicert. | *int | false |
 | organizationName | OrganizationName is the name of the organization in Digicert. If specified takes precedence over OrganizationID. | string | false |
 | organizationUnits | OrganizationUnits is the list of organizational units. | []string | false |
-| validityYears | ValidityYears is the validity of the certificate in years. | *int | false |
+| validityDays | ValidityDays is the validity of the order and certificate in days. Overrides ValidityYears if set. | *int | false |
+| validityYears | ValidityYears is the validity of the order and certificate in years. Defaults to 1 year if not set. Can be overridden by ValidityDays. | *int | false |
 | disableRenewalNotifications | DisableRenewalNotifications disables email renewal notifications for expiring certificates. | *bool | false |
 | paymentMethod | PaymentMethod is the configured payment method in the Digicert account. | string | false |
 | skipApproval | SkipApproval skips the approval of the certificate. | *bool | false |

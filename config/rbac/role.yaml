@@ -1,9 +1,7 @@
-
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  creationTimestamp: null
   name: digicert-issuer-role
 rules:
 - apiGroups:
@@ -14,6 +12,14 @@ rules:
   - create
   - patch
 - apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - cert-manager.io
   resources:
   - certificaterequests
@@ -22,7 +28,6 @@ rules:
   - list
   - update
   - watch
-  - patch
 - apiGroups:
   - cert-manager.io
   resources:
@@ -51,11 +56,3 @@ rules:
   - get
   - patch
   - update
-- apiGroups:
-  - ""
-  resources:
-  - secrets
-  verbs:
-  - get
-  - list
-  - watch

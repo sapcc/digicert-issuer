@@ -158,6 +158,11 @@ func (in *DigicertProvisioner) DeepCopyInto(out *DigicertProvisioner) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	if in.ValidityDays != nil {
+		in, out := &in.ValidityDays, &out.ValidityDays
+		*out = new(int)
+		**out = **in
+	}
 	if in.ValidityYears != nil {
 		in, out := &in.ValidityYears, &out.ValidityYears
 		*out = new(int)
