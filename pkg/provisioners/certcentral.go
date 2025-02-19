@@ -32,8 +32,8 @@ type CertCentral struct {
 	name   string
 	client *certcentral.Client
 
-	validityDays *int
-	validityYears *int
+	validityDays        *int
+	validityYears       *int
 	organizationID      int
 	caCertID            string
 	organizationalUnits []string
@@ -69,9 +69,15 @@ func New(issuer *v1beta1.DigicertIssuer, apiToken string) (*CertCentral, error) 
 		organizationID = org.ID
 	}
 
-	validityYears := defaultValidityYears
-	if issuer.Spec.Provisioner.ValidityYears != nil {
-		validityYears = *issuer.Spec.Provisioner.ValidityYears
+	validityYears := issuer.Spec.Provisioner.ValidityYears
+	validityDays := issuer.Spec.Provisioner.ValidityDays
+	if validityYears != nil && validityDays != nil {
+		return nil, fmt.Errorf("can not handle both validityYears and validityDays")
+	}
+
+	if validityYears == nil && validityDays == nil {
+		v := defaultValidityYears
+		validityYears = &v
 	}
 
 	orgUnits := make([]string, 0)
@@ -107,8 +113,8 @@ func New(issuer *v1beta1.DigicertIssuer, apiToken string) (*CertCentral, error) 
 	return &CertCentral{
 		name:                        fmt.Sprintf("%s/%s", issuer.GetName(), issuer.GetNamespace()),
 		client:                      client,
-		validityYears:               &validityYears,
-		validityDays:                issuer.Spec.Provisioner.ValidityDays,
+		validityYears:               validityYears,
+		validityDays:                validityDays,
 		organizationID:              organizationID,
 		caCertID:                    issuer.Spec.Provisioner.CACertID,
 		organizationalUnits:         orgUnits,
