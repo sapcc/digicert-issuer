@@ -31,7 +31,7 @@ type DigicertIssuerSpec struct {
 	Provisioner DigicertProvisioner `json:"provisioner"`
 }
 
-// +kubebuilder:validation:XValidation:message="only one of validityDays and validityYears can be set.",rule="!has(self.validityDays) || !has(self.validityYears)"
+// +kubebuilder:validation:XValidation:message="only one of validityDays and validityYears can be set.",rule="has(self.validityDays) && !has(self.validityYears) || !has(self.validityDays) && has(self.validityYears)"
 
 // DigiCertProvisioner contains the DigiCert provisioner configuration.
 type DigicertProvisioner struct {

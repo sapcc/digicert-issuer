@@ -111,7 +111,8 @@ spec:
                 type: object
                 x-kubernetes-validations:
                 - message: only one of validityDays and validityYears can be set.
-                  rule: '!has(self.validityDays) || !has(self.validityYears)'
+                  rule: has(self.validityDays) && !has(self.validityYears) || !has(self.validityDays)
+                    && has(self.validityYears)
               url:
                 description: Optional URL is the DigiCert cert-central API.
                 type: string
