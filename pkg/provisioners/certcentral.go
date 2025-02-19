@@ -32,7 +32,7 @@ type CertCentral struct {
 	name   string
 	client *certcentral.Client
 
-	validityDays,
+	validityDays *int
 	validityYears *int
 	organizationID      int
 	caCertID            string
