@@ -20,6 +20,7 @@ import (
 	"context"
 	"crypto/x509"
 	"fmt"
+
 	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/sapcc/digicert-issuer/apis/certmanager/v1beta1"
 	certcentral "github.com/sapcc/go-certcentral"
@@ -31,8 +32,9 @@ type CertCentral struct {
 	name   string
 	client *certcentral.Client
 
-	validityYears,
-	organizationID int
+	validityDays        *int
+	validityYears       *int
+	organizationID      int
 	caCertID            string
 	organizationalUnits []string
 	skipApproval,
@@ -67,9 +69,15 @@ func New(issuer *v1beta1.DigicertIssuer, apiToken string) (*CertCentral, error) 
 		organizationID = org.ID
 	}
 
-	validityYears := defaultValidityYears
-	if issuer.Spec.Provisioner.ValidityYears != nil {
-		validityYears = *issuer.Spec.Provisioner.ValidityYears
+	validityYears := issuer.Spec.Provisioner.ValidityYears
+	validityDays := issuer.Spec.Provisioner.ValidityDays
+	if validityYears != nil && validityDays != nil {
+		return nil, fmt.Errorf("can not handle both validityYears and validityDays")
+	}
+
+	if validityYears == nil && validityDays == nil {
+		v := defaultValidityYears
+		validityYears = &v
 	}
 
 	orgUnits := make([]string, 0)
@@ -106,6 +114,7 @@ func New(issuer *v1beta1.DigicertIssuer, apiToken string) (*CertCentral, error) 
 		name:                        fmt.Sprintf("%s/%s", issuer.GetName(), issuer.GetNamespace()),
 		client:                      client,
 		validityYears:               validityYears,
+		validityDays:                validityDays,
 		organizationID:              organizationID,
 		caCertID:                    issuer.Spec.Provisioner.CACertID,
 		organizationalUnits:         orgUnits,
@@ -132,6 +141,14 @@ func (c *CertCentral) Sign(ctx context.Context, cr *certmanagerv1.CertificateReq
 		sans = append(sans, ipAddr.String())
 	}
 
+	orderValidity := certcentral.OrderValidity{}
+	if c.validityDays != nil {
+		orderValidity.Days = *c.validityDays
+	}
+	if c.validityYears != nil {
+		orderValidity.Years = *c.validityYears
+	}
+
 	orderResponse, err := c.client.SubmitOrder(certcentral.Order{
 		Certificate: certcentral.Certificate{
 			CommonName:        getCommonName(certReq),
@@ -142,7 +159,7 @@ func (c *CertCentral) Sign(ctx context.Context, cr *certmanagerv1.CertificateReq
 			CaCertID:          c.caCertID,
 			OrganizationUnits: c.organizationalUnits,
 		},
-		ValidityYears:               c.validityYears,
+		OrderValidity:               orderValidity,
 		DisableRenewalNotifications: c.disableRenewalNotifications,
 		PaymentMethod:               c.paymentMethod,
 		SkipApproval:                c.skipApproval,

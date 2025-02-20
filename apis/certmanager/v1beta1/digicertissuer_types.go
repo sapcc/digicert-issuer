@@ -31,6 +31,8 @@ type DigicertIssuerSpec struct {
 	Provisioner DigicertProvisioner `json:"provisioner"`
 }
 
+// +kubebuilder:validation:XValidation:message="only one of validityDays and validityYears can be set.",rule="has(self.validityDays) && !has(self.validityYears) || !has(self.validityDays) && has(self.validityYears)"
+
 // DigiCertProvisioner contains the DigiCert provisioner configuration.
 type DigicertProvisioner struct {
 	// APITokenReference references a secret in the same namespace containing the DigiCert API token.
@@ -49,7 +51,11 @@ type DigicertProvisioner struct {
 	// OrganizationUnits is the list of organizational units.
 	OrganizationUnits []string `json:"organizationUnits,omitempty"`
 
-	// ValidityYears is the validity of the certificate in years.
+	// ValidityDays is the validity of the order and certificate in days. Overrides ValidityYears if set.
+	ValidityDays *int `json:"validityDays,omitempty"`
+
+	// ValidityYears is the validity of the order and certificate in years. Defaults to 1 year if not set.
+	// Can be overridden by ValidityDays.
 	ValidityYears *int `json:"validityYears,omitempty"`
 
 	// DisableRenewalNotifications disables email renewal notifications for expiring certificates.
@@ -151,7 +157,7 @@ const (
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:printcolumn:name="Ready",type=boolean,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
+// +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
 // DigicertIssuer is the Schema for the digicertissuers API
