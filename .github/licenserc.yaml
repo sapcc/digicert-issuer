@@ -30,6 +30,7 @@ header:
     - '**/*.txt'
     - '*Dockerfile*'
     - 'Makefile'
+    - 'VERSION'
     
   comment: on-failure
   
