@@ -1,0 +1,39 @@
+metadata:
+  url: https://github.com/sapcc/digicert-issuer
+
+binaries:
+  - name:        digicert-issuer
+    fromPackage: ./cmd/digicert-issuer
+    installTo:   bin/
+
+controllerGen:
+  enabled: true
+  crdOutputPath: config/crd/bases
+  rbacRoleName: digicert-issuer-role
+
+dockerfile:
+  enabled: true
+  entrypoint: [ "/digicert-issuer" ]
+
+golang:
+  setGoModVersion: true
+
+golangciLint:
+  createConfig: true
+
+githubWorkflow:
+  ci:
+    enabled: true
+    coveralls: true
+
+renovate:
+  enabled: true
+  assignees:
+    - kayrus
+
+variables:
+  GO_BUILDENV: 'CGO_ENABLED=0'
+
+verbatim: |
+  run: build/digicert-issuer
+    ./build/digicert-issuer
