@@ -37,13 +37,12 @@ func mapToOrderType(s string) (certcentral.OrderType, bool) {
 }
 
 func listAvailableOrderTypes() []certcentral.OrderType {
-	orderTypes := reflect.Indirect(reflect.ValueOf(certcentral.OrderTypes))
-	len := orderTypes.NumField()
-	allTypes := make([]certcentral.OrderType, len)
-	for i := 0; i < len; i++ {
-		allTypes[i] = certcentral.OrderType(orderTypes.Type().Field(i).Name)
+	var orderTypes []certcentral.OrderType
+	v := reflect.ValueOf(certcentral.OrderTypes)
+	for i := 0; i < v.NumField(); i++ {
+		orderTypes = append(orderTypes, v.Field(i).Interface().(certcentral.OrderType))
 	}
-	return allTypes
+	return orderTypes
 }
 
 func mapToPaymentMethod(s string) (certcentral.PaymentMethod, bool) {
@@ -57,11 +56,10 @@ func mapToPaymentMethod(s string) (certcentral.PaymentMethod, bool) {
 }
 
 func listAvailablePaymentMethods() []certcentral.PaymentMethod {
-	paymentMethods := reflect.Indirect(reflect.ValueOf(certcentral.PaymentMethods))
-	len := paymentMethods.NumField()
-	allMethods := make([]certcentral.PaymentMethod, len)
-	for i := 0; i < len; i++ {
-		allMethods[i] = certcentral.PaymentMethod(paymentMethods.Type().Field(i).Name)
+	var paymentMethods []certcentral.PaymentMethod
+	v := reflect.ValueOf(certcentral.PaymentMethods)
+	for i := 0; i < v.NumField(); i++ {
+		paymentMethods = append(paymentMethods, v.Field(i).Interface().(certcentral.PaymentMethod))
 	}
-	return allMethods
+	return paymentMethods
 }
