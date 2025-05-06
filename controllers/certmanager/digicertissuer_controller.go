@@ -22,6 +22,7 @@ package certmanager
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/go-logr/logr"
 	"github.com/hashicorp/go-multierror"
@@ -36,20 +37,36 @@ import (
 // DigicertIssuerReconciler reconciles a DigicertIssuer object
 type DigicertIssuerReconciler struct {
 	client.Client
-	log      logr.Logger
-	recorder record.EventRecorder
+	log                    logr.Logger
+	recorder               record.EventRecorder
+	clusterIssuerNamespace string
+}
+
+func NewDigicertIssuerReconciler(clusterIssuerNamespace string) *DigicertIssuerReconciler {
+	return &DigicertIssuerReconciler{
+		clusterIssuerNamespace: clusterIssuerNamespace,
+	}
 }
 
 // +kubebuilder:rbac:groups=certmanager.cloud.sap,resources=digicertissuers,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=certmanager.cloud.sap,resources=digicertissuers/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=certmanager.cloud.sap,resources=clusterdigicertissuers,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=certmanager.cloud.sap,resources=clusterdigicertissuers/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
 func (r *DigicertIssuerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := r.log.WithValues("digicertissuer", req.NamespacedName)
+	var issuer k8sutils.Issuer
+	secretNamespace := req.Namespace
+	if req.Namespace == "" {
+		issuer = new(k8sutils.ClusterDigicertIssuer)
+		secretNamespace = r.clusterIssuerNamespace
+	} else {
+		issuer = new(k8sutils.DigicertIssuer)
+	}
+	logger := r.log.WithValues(issuer.Kind(), req.NamespacedName)
 
-	issuer := new(certmanagerv1beta1.DigicertIssuer)
-	if err := r.Client.Get(ctx, req.NamespacedName, issuer); err != nil {
+	if err := issuer.Get(ctx, r.Client, req.NamespacedName); err != nil {
 		logger.Error(err, "failed to get issuer")
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
@@ -59,7 +76,7 @@ func (r *DigicertIssuerReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		logger.Error(err, "failed to initialize issuer status")
 	}
 
-	if err := validateDigicertIssuerSpec(issuer.Spec); err != nil {
+	if err := validateDigicertIssuerSpec(issuer.Spec()); err != nil {
 		k8sutils.SetDigicertIssuerStatusConditionType(
 			ctx, r.Client, issuer, certmanagerv1beta1.ConditionConfigurationError, certmanagerv1beta1.ConditionTrue,
 			certmanagerv1beta1.ConditionReasonInvalidIssuerSpec, err.Error(),
@@ -71,8 +88,8 @@ func (r *DigicertIssuerReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		ctx, r.Client, issuer, certmanagerv1beta1.ConditionConfigurationError, certmanagerv1beta1.ConditionFalse, "", "",
 	)
 
-	secretRef := issuer.Spec.Provisioner.APITokenReference
-	digicertAPIToken, err := k8sutils.GetSecretData(ctx, r.Client, issuer.GetNamespace(), secretRef.Name, secretRef.Key)
+	secretRef := issuer.Spec().Provisioner.APITokenReference
+	digicertAPIToken, err := k8sutils.GetSecretData(ctx, r.Client, secretNamespace, secretRef.Name, secretRef.Key)
 	if err != nil {
 		logger.Error(err, "failed to get provisioner secret containing the API token")
 		k8sutils.SetDigicertIssuerStatusConditionType(
@@ -85,7 +102,7 @@ func (r *DigicertIssuerReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		ctx, r.Client, issuer, certmanagerv1beta1.ConditionConfigurationError, certmanagerv1beta1.ConditionFalse, "", "",
 	)
 
-	prov, err := provisioners.New(issuer, digicertAPIToken)
+	prov, err := provisioners.New(fmt.Sprintf("%s/%s", req.Namespace, req.Name), issuer.Spec(), digicertAPIToken)
 	if err != nil {
 		logger.Error(err, "failed to initialize provisioner")
 		return ctrl.Result{}, err
@@ -106,6 +123,15 @@ func (r *DigicertIssuerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.Client = mgr.GetClient()
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&certmanagerv1beta1.DigicertIssuer{}).
+		Complete(r)
+}
+
+func (r *DigicertIssuerReconciler) SetupWithManagerClusterIssuer(mgr ctrl.Manager) error {
+	r.recorder = mgr.GetEventRecorderFor("clusterDigicertIssuer")
+	r.log = mgr.GetLogger().WithName("controllers").WithName("ClusterDigicertIssuer")
+	r.Client = mgr.GetClient()
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&certmanagerv1beta1.ClusterDigicertIssuer{}).
 		Complete(r)
 }
 

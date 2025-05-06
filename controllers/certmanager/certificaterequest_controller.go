@@ -22,6 +22,7 @@ package certmanager
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	apiutil "github.com/cert-manager/cert-manager/pkg/api/util"
@@ -29,6 +30,7 @@ import (
 	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
 	"github.com/go-logr/logr"
 	certmanagerv1beta1 "github.com/sapcc/digicert-issuer/apis/certmanager/v1beta1"
+	"github.com/sapcc/digicert-issuer/pkg/k8sutils"
 	"github.com/sapcc/digicert-issuer/pkg/provisioners"
 	core "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -107,18 +109,30 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 		return ctrl.Result{}, nil
 	}
 
-	iss := new(certmanagerv1beta1.DigicertIssuer)
-	issNamespaceName := types.NamespacedName{
-		Namespace: req.Namespace,
-		Name:      cr.Spec.IssuerRef.Name,
+	var (
+		iss              k8sutils.Issuer
+		issNamespaceName types.NamespacedName
+	)
+	if strings.EqualFold(cr.Spec.IssuerRef.Kind, certmanagerv1beta1.ClusterDigicertIssuerKind) {
+		iss = k8sutils.NewClusterDigicertIssuer()
+		issNamespaceName = types.NamespacedName{
+			Name: cr.Spec.IssuerRef.Name,
+		}
+	} else {
+		iss = k8sutils.NewDigicertIssuer()
+		issNamespaceName = types.NamespacedName{
+			Namespace: req.Namespace,
+			Name:      cr.Spec.IssuerRef.Name,
+		}
 	}
-	if err := r.Client.Get(ctx, issNamespaceName, iss); err != nil {
-		log.V(4).Info("Failed to retrieve DigicertIssuer resource, falling back to default namespace", "namespace", req.Namespace, "name", cr.Spec.IssuerRef.Name)
+
+	if err := iss.Get(ctx, r.Client, issNamespaceName); err != nil {
+		log.V(4).Info("Failed to retrieve DigicertIssuer resource, falling back to default namespace", "kind", iss.Kind(), "namespace", req.Namespace, "name", cr.Spec.IssuerRef.Name)
 		issNamespaceName.Namespace = r.DefaultProviderNamespace
-		err = r.Client.Get(ctx, issNamespaceName, iss)
+		err = iss.Get(ctx, r.Client, issNamespaceName)
 		if err != nil {
-			log.Error(err, "No DigicertIssuer resource found", "namespace", r.DefaultProviderNamespace, "name", cr.Spec.IssuerRef.Name)
-			_ = r.setStatus(ctx, cr, curCR, cmmeta.ConditionFalse, cmapi.CertificateRequestReasonPending, "Failed to retrieve DigicertIssuer resource %s: %v", issNamespaceName, err)
+			log.Error(err, "No DigicertIssuer resource found", "kind", iss.Kind(), "namespace", r.DefaultProviderNamespace, "name", cr.Spec.IssuerRef.Name)
+			_ = r.setStatus(ctx, cr, curCR, cmmeta.ConditionFalse, cmapi.CertificateRequestReasonPending, "Failed to retrieve %s resource %s: %v", iss.Kind(), issNamespaceName, err)
 			metricIssuerNotReady.WithLabelValues(issNamespaceName.String(), "issuer not found").Inc()
 			return ctrl.Result{}, err
 		}
@@ -127,7 +141,7 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 	if !isDigicertIssuerReady(iss) {
 		log.Info("issuer is not ready", "name", issNamespaceName.String())
 		metricIssuerNotReady.WithLabelValues(issNamespaceName.String(), "issuer not ready").Inc()
-		if err := r.setStatus(ctx, cr, curCR, cmmeta.ConditionFalse, cmapi.CertificateRequestReasonPending, "DigicertIssuer resource %s is not Ready", issNamespaceName); err != nil {
+		if err := r.setStatus(ctx, cr, curCR, cmmeta.ConditionFalse, cmapi.CertificateRequestReasonPending, "%s resource %s is not Ready", iss.Kind(), issNamespaceName); err != nil {
 			return ctrl.Result{}, err
 		}
 		return ctrl.Result{RequeueAfter: r.BackoffDurationProvisionerNotReady}, nil
@@ -138,7 +152,7 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 	if !ok {
 		log.Info("provisioner not found", "name", issNamespaceName)
 		metricIssuerNotReady.WithLabelValues(issNamespaceName.String(), "provisioner not found").Inc()
-		if err := r.setStatus(ctx, cr, curCR, cmmeta.ConditionFalse, cmapi.CertificateRequestReasonPending, "Failed to load provisioner for DigicertIssuer resource %s", issNamespaceName); err != nil {
+		if err := r.setStatus(ctx, cr, curCR, cmmeta.ConditionFalse, cmapi.CertificateRequestReasonPending, "Failed to load provisioner for %s resource %s", iss.Kind(), issNamespaceName); err != nil {
 			return ctrl.Result{}, err
 		}
 		return ctrl.Result{RequeueAfter: r.BackoffDurationProvisionerNotReady}, nil
@@ -222,8 +236,8 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 	return ctrl.Result{}, err
 }
 
-func isDigicertIssuerReady(issuer *certmanagerv1beta1.DigicertIssuer) bool {
-	status := issuer.Status
+func isDigicertIssuerReady(issuer k8sutils.Issuer) bool {
+	status := issuer.Status()
 	if status == nil {
 		return false
 	}
