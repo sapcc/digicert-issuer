@@ -51,7 +51,7 @@ func (c CertCentral) GetName() string {
 	return c.name
 }
 
-func New(issuer *v1beta1.DigicertIssuer, apiToken string) (*CertCentral, error) {
+func New(name string, issuerSpec v1beta1.DigicertIssuerSpec, apiToken string) (*CertCentral, error) {
 	client, err := certcentral.New(&certcentral.Options{
 		Token: apiToken,
 	})
@@ -60,20 +60,20 @@ func New(issuer *v1beta1.DigicertIssuer, apiToken string) (*CertCentral, error) 
 	}
 
 	var organizationID int
-	if issuer.Spec.Provisioner.OrganizationID != nil {
-		organizationID = *issuer.Spec.Provisioner.OrganizationID
+	if issuerSpec.Provisioner.OrganizationID != nil {
+		organizationID = *issuerSpec.Provisioner.OrganizationID
 	}
 
-	if issuer.Spec.Provisioner.OrganizationName != "" {
-		org, err := client.GetOrganizationByName(issuer.Spec.Provisioner.OrganizationName)
+	if issuerSpec.Provisioner.OrganizationName != "" {
+		org, err := client.GetOrganizationByName(issuerSpec.Provisioner.OrganizationName)
 		if err != nil {
 			return nil, err
 		}
 		organizationID = org.ID
 	}
 
-	validityYears := issuer.Spec.Provisioner.ValidityYears
-	validityDays := issuer.Spec.Provisioner.ValidityDays
+	validityYears := issuerSpec.Provisioner.ValidityYears
+	validityDays := issuerSpec.Provisioner.ValidityDays
 	if validityYears != nil && validityDays != nil {
 		return nil, fmt.Errorf("can not handle both validityYears and validityDays")
 	}
@@ -84,42 +84,42 @@ func New(issuer *v1beta1.DigicertIssuer, apiToken string) (*CertCentral, error) 
 	}
 
 	orgUnits := make([]string, 0)
-	if issuer.Spec.Provisioner.OrganizationUnits != nil {
-		orgUnits = issuer.Spec.Provisioner.OrganizationUnits
+	if issuerSpec.Provisioner.OrganizationUnits != nil {
+		orgUnits = issuerSpec.Provisioner.OrganizationUnits
 	}
 
 	skipApproval := true
-	if issuer.Spec.Provisioner.SkipApproval != nil {
-		skipApproval = *issuer.Spec.Provisioner.SkipApproval
+	if issuerSpec.Provisioner.SkipApproval != nil {
+		skipApproval = *issuerSpec.Provisioner.SkipApproval
 	}
 
 	disableRenewalNotifications := true
-	if issuer.Spec.Provisioner.DisableRenewalNotifications != nil {
-		disableRenewalNotifications = *issuer.Spec.Provisioner.DisableRenewalNotifications
+	if issuerSpec.Provisioner.DisableRenewalNotifications != nil {
+		disableRenewalNotifications = *issuerSpec.Provisioner.DisableRenewalNotifications
 	}
 
 	orderType := certcentral.OrderTypes.SecureSiteOV
-	if t, ok := mapToOrderType(issuer.Spec.Provisioner.OrderType); ok {
+	if t, ok := mapToOrderType(issuerSpec.Provisioner.OrderType); ok {
 		orderType = t
 	}
 
 	paymentMethod := certcentral.PaymentMethods.Balance
-	if m, ok := mapToPaymentMethod(issuer.Spec.Provisioner.PaymentMethod); ok {
+	if m, ok := mapToPaymentMethod(issuerSpec.Provisioner.PaymentMethod); ok {
 		paymentMethod = m
 	}
 
 	var containerID int
-	if issuer.Spec.Provisioner.ContainerID != nil {
-		containerID = *issuer.Spec.Provisioner.ContainerID
+	if issuerSpec.Provisioner.ContainerID != nil {
+		containerID = *issuerSpec.Provisioner.ContainerID
 	}
 
 	return &CertCentral{
-		name:                        fmt.Sprintf("%s/%s", issuer.GetName(), issuer.GetNamespace()),
+		name:                        name,
 		client:                      client,
 		validityYears:               validityYears,
 		validityDays:                validityDays,
 		organizationID:              organizationID,
-		caCertID:                    issuer.Spec.Provisioner.CACertID,
+		caCertID:                    issuerSpec.Provisioner.CACertID,
 		organizationalUnits:         orgUnits,
 		skipApproval:                skipApproval,
 		disableRenewalNotifications: disableRenewalNotifications,

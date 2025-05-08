@@ -24,6 +24,8 @@ import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
+const DigicertIssuerKind = "DigicertIssuer"
+
 // DigicertIssuerSpec defines the desired state of DigicertIssuer
 type DigicertIssuerSpec struct {
 	// Optional URL is the DigiCert cert-central API.
@@ -36,7 +38,7 @@ type DigicertIssuerSpec struct {
 
 // +kubebuilder:validation:XValidation:message="only one of validityDays and validityYears can be set.",rule="has(self.validityDays) && !has(self.validityYears) || !has(self.validityDays) && has(self.validityYears)"
 
-// DigiCertProvisioner contains the DigiCert provisioner configuration.
+// DigicertProvisioner contains the DigiCert provisioner configuration.
 type DigicertProvisioner struct {
 	// APITokenReference references a secret in the same namespace containing the DigiCert API token.
 	APITokenReference SecretKeySelector `json:"apiTokenReference"`
@@ -162,6 +164,7 @@ const (
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:resource:scope=Namespaced
 
 // DigicertIssuer is the Schema for the digicertissuers API
 type DigicertIssuer struct {
