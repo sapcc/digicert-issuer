@@ -6,6 +6,7 @@
 # It should be run by config/default
 resources:
 - bases/certmanager.cloud.sap_digicertissuers.yaml
+- bases/certmanager.cloud.sap_clusterdigicertissuers.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patchesStrategicMerge:
