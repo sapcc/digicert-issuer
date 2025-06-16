@@ -51,6 +51,12 @@ type CertificateRequestReconciler struct {
 	DisableRootCA                      bool
 }
 
+const (
+	annotationKeyCertificateID  = "certmanager.cloud.sap/digicert-cert-id"
+	annotationKeyDigicertIssuer = "certmanager.cloud.sap/digicert-issuer"
+	annotationKeyOrderID        = "certmanager.cloud.sap/digicert-order-id"
+)
+
 // SetupWithManager initializes the CertificateRequest controller into the
 // controller runtime.
 func (r *CertificateRequestReconciler) SetupWithManager(mgr ctrl.Manager) error {
@@ -155,7 +161,7 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 			metricRequestsPending.WithLabelValues(cr.ObjectMeta.Name,
 				cr.ObjectMeta.GetAnnotations()["cert-manager.io/certificate-name"],
 				cr.ObjectMeta.GetAnnotations()["cert-manager.io/private-key-secret-name"],
-				cr.ObjectMeta.GetAnnotations()["certmanager.cloud.sap/digicert-order-id"],
+				cr.ObjectMeta.GetAnnotations()[annotationKeyOrderID],
 			).Inc()
 
 			return ctrl.Result{Requeue: true, RequeueAfter: r.BackoffDurationRequestPending}, err
@@ -168,6 +174,16 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 		err = r.setStatus(ctx, cr, curCR, cmmeta.ConditionTrue, cmapi.CertificateRequestReasonIssued, "Certificate issued")
 
 		return ctrl.Result{}, err
+	}
+
+	// If the certificate was already requested (i.e., the certificate ID is set) but the status conditions are empty,
+	// requeue the request to wait for the conditions to be set.
+	// This can happen if the order was sent, annotations were updated, but the patching of the status
+	// is not (yet) reflected in the client cache. This would lead to signing another cert.
+	// Do not patch the status, as this might overwrite the status conditions already set on server side (only not in cache).
+	if cr.ObjectMeta.GetAnnotations()[annotationKeyCertificateID] != "" && len(cr.Status.Conditions) == 0 {
+		log.Info("CertificateRequest has a certificate ID but no conditions set, re-queuing to wait for conditions", "name", cr.ObjectMeta.Name)
+		return ctrl.Result{Requeue: true, RequeueAfter: r.BackoffDurationRequestPending}, nil
 	}
 
 	// Sign CertificateRequest.
@@ -185,12 +201,12 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 
 	// Patch annotations.
 	annotations := cr.ObjectMeta.GetAnnotations()
-	annotations["certmanager.cloud.sap/digicert-issuer"] = "true"
+	annotations[annotationKeyDigicertIssuer] = "true"
 	if order.ID > 0 {
-		annotations["certmanager.cloud.sap/digicert-order-id"] = fmt.Sprintf("%d", order.ID)
+		annotations[annotationKeyOrderID] = fmt.Sprintf("%d", order.ID)
 	}
 	if order.CertificateID > 0 {
-		annotations["certmanager.cloud.sap/digicert-cert-id"] = fmt.Sprintf("%d", order.CertificateID)
+		annotations[annotationKeyCertificateID] = fmt.Sprintf("%d", order.CertificateID)
 	}
 	cr.ObjectMeta.SetAnnotations(annotations)
 	if err := r.Client.Patch(ctx, cr, client.MergeFrom(curCR)); err != nil {
@@ -240,7 +256,7 @@ func isDigicertIssuerReady(issuer *certmanagerv1beta1.DigicertIssuer) bool {
 func isCertificateRequestPending(cr *cmapi.CertificateRequest) bool {
 	status := cr.Status
 	// this is a hack that allows digicert-issuer to distinguish fake ACME pending requests
-	digicertAcquired := cr.ObjectMeta.GetAnnotations()["certmanager.cloud.sap/digicert-issuer"] == "true"
+	digicertAcquired := cr.ObjectMeta.GetAnnotations()[annotationKeyDigicertIssuer] == "true"
 
 	for _, condition := range status.Conditions {
 		if condition.Reason == "Pending" && digicertAcquired {
