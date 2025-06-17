@@ -81,7 +81,7 @@ func main() {
 		"The backoff duration if certificate request is pending.")
 
 	flag.StringVar(&clusterIssuerNamespace, "cluster-issuer-namespace", "",
-		"Namespace, from which clusterdiqicertissuer secret are read for ClusterDigicertIssuers. If left empty, ClusterDigicertIssuer is not reconciled.")
+		"Namespace, from which clusterdigicertissuer secret are read for ClusterDigicertIssuers. If left empty, ClusterDigicertIssuer is not reconciled.")
 
 	flag.BoolVar(&disableRootCA, "disable-root-ca", false,
 		"Enabling this removes root CA from CertificateRequest")
