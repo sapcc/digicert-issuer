@@ -25,10 +25,6 @@ import (
 	"os"
 	"time"
 
-	// Load k8s auth plugins.
-	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
-
 	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	certmanagerv1beta1 "github.com/sapcc/digicert-issuer/apis/certmanager/v1beta1"
 	certmanagerv1beta1controller "github.com/sapcc/digicert-issuer/controllers/certmanager"
@@ -36,6 +32,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	// Load k8s auth plugins.
+	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -65,6 +64,7 @@ func main() {
 		printVersionAndExit                bool
 		backoffDurationProvisionerNotReady time.Duration
 		backoffDurationRequestPending      time.Duration
+		clusterIssuerNamespace             string
 		disableRootCA                      bool
 	)
 
@@ -79,6 +79,9 @@ func main() {
 
 	flag.DurationVar(&backoffDurationRequestPending, "backoff-duration-request-pending", 15*time.Minute,
 		"The backoff duration if certificate request is pending.")
+
+	flag.StringVar(&clusterIssuerNamespace, "cluster-issuer-namespace", "",
+		"Namespace, from which clusterdigicertissuer secret are read for ClusterDigicertIssuers. If left empty, ClusterDigicertIssuer is not reconciled.")
 
 	flag.BoolVar(&disableRootCA, "disable-root-ca", false,
 		"Enabling this removes root CA from CertificateRequest")
@@ -103,8 +106,13 @@ func main() {
 	})
 	handleError(err, "unable to start manager")
 
-	err = (&certmanagerv1beta1controller.DigicertIssuerReconciler{}).SetupWithManager(mgr)
-	handleError(err, "unable to initialize controller", "controller", "digicertIssuer")
+	err = certmanagerv1beta1controller.NewDigicertIssuerReconciler("").SetupWithManager(mgr)
+	handleError(err, "unable to initialize controller", "controller", certmanagerv1beta1.DigicertIssuerKind)
+
+	if clusterIssuerNamespace != "" {
+		err = certmanagerv1beta1controller.NewDigicertIssuerReconciler(clusterIssuerNamespace).SetupWithManagerClusterIssuer(mgr)
+		handleError(err, "unable to initialize controller", "controller", certmanagerv1beta1.ClusterDigicertIssuerKind)
+	}
 
 	err = (&certmanagerv1beta1controller.CertificateRequestReconciler{
 		BackoffDurationProvisionerNotReady: backoffDurationProvisionerNotReady,

@@ -28,7 +28,100 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func SetDigicertIssuerStatusConditionType(ctx context.Context, k8sClient client.Client, cur *certmanagerv1beta1.DigicertIssuer, statusType certmanagerv1beta1.ConditionType, status certmanagerv1beta1.ConditionStatus, reason certmanagerv1beta1.ConditionReason, message string) (*certmanagerv1beta1.DigicertIssuer, error) {
+type Issuer interface {
+	Get(ctx context.Context, client client.Client, key client.ObjectKey) error
+	Kind() string
+	Spec() certmanagerv1beta1.DigicertIssuerSpec
+	Status() *certmanagerv1beta1.DigicertIssuerStatus
+	SetStatus(*certmanagerv1beta1.DigicertIssuerStatus)
+	PatchStatus(ctx context.Context, client client.Client, newStatus *certmanagerv1beta1.DigicertIssuerStatus) (Issuer, error)
+}
+
+// DigicertIssuer allows an implementation for the Issuer interface without adding unnecessary dependencies to package API
+type DigicertIssuer struct {
+	certmanagerv1beta1.DigicertIssuer
+}
+
+var _ Issuer = &DigicertIssuer{}
+
+func (iss *DigicertIssuer) Get(ctx context.Context, client client.Client, key client.ObjectKey) error {
+	return client.Get(ctx, key, &iss.DigicertIssuer)
+}
+
+func (iss *DigicertIssuer) Kind() string {
+	return "DigicertIssuer"
+}
+
+func (iss *DigicertIssuer) Status() *certmanagerv1beta1.DigicertIssuerStatus {
+	return iss.DigicertIssuer.Status
+}
+
+func (iss *DigicertIssuer) Spec() certmanagerv1beta1.DigicertIssuerSpec {
+	return iss.DigicertIssuer.Spec
+}
+
+func (iss *DigicertIssuer) SetStatus(status *certmanagerv1beta1.DigicertIssuerStatus) {
+	iss.DigicertIssuer.Status = status
+}
+
+func (iss *DigicertIssuer) PatchStatus(ctx context.Context, k8sClient client.Client, newStatus *certmanagerv1beta1.DigicertIssuerStatus) (Issuer, error) {
+	patch := client.MergeFrom(iss)
+	newIssuer := iss.DeepCopy()
+	newIssuer.Status = newStatus
+	if err := k8sClient.Status().Patch(ctx, newIssuer, patch); err != nil {
+		return iss, err
+	}
+
+	return &DigicertIssuer{*newIssuer}, nil
+}
+
+func NewDigicertIssuer() Issuer {
+	return new(DigicertIssuer)
+}
+
+// ClusterDigicertIssuer allows an implementation for the Issuer interface without adding unnecessary dependencies to package API
+type ClusterDigicertIssuer struct {
+	certmanagerv1beta1.ClusterDigicertIssuer
+}
+
+var _ Issuer = &ClusterDigicertIssuer{}
+
+func (iss *ClusterDigicertIssuer) Get(ctx context.Context, client client.Client, key client.ObjectKey) error {
+	return client.Get(ctx, key, &iss.ClusterDigicertIssuer)
+}
+
+func NewClusterDigicertIssuer() Issuer {
+	return new(ClusterDigicertIssuer)
+}
+
+func (iss *ClusterDigicertIssuer) Kind() string {
+	return "ClusterDigicertIssuer"
+}
+
+func (iss *ClusterDigicertIssuer) Spec() certmanagerv1beta1.DigicertIssuerSpec {
+	return iss.ClusterDigicertIssuer.Spec
+}
+
+func (iss *ClusterDigicertIssuer) Status() *certmanagerv1beta1.DigicertIssuerStatus {
+	return iss.ClusterDigicertIssuer.Status
+}
+
+func (iss *ClusterDigicertIssuer) SetStatus(status *certmanagerv1beta1.DigicertIssuerStatus) {
+	iss.ClusterDigicertIssuer.Status = status
+}
+
+func (iss *ClusterDigicertIssuer) PatchStatus(ctx context.Context, k8sClient client.Client, newStatus *certmanagerv1beta1.DigicertIssuerStatus) (Issuer, error) {
+	patch := client.MergeFrom(iss)
+	newIssuer := iss.DeepCopy()
+	newIssuer.Status = newStatus
+	if err := k8sClient.Status().Patch(ctx, newIssuer, patch); err != nil {
+		return iss, err
+	}
+
+	return &ClusterDigicertIssuer{*newIssuer}, nil
+}
+
+func SetDigicertIssuerStatusConditionType(ctx context.Context, k8sClient client.Client, cur Issuer, statusType certmanagerv1beta1.ConditionType, status certmanagerv1beta1.ConditionStatus, reason certmanagerv1beta1.ConditionReason, message string) (Issuer, error) {
 	ts := metav1.NewTime(time.Now().UTC())
 	newCondition := certmanagerv1beta1.DigicertIssuerCondition{
 		Type:               statusType,
@@ -39,32 +132,32 @@ func SetDigicertIssuerStatusConditionType(ctx context.Context, k8sClient client.
 	}
 
 	// Skip the update if the condition is already present and only the timestamp changed.
-	if isIssuerHasStatusConditionIgnoreTimestamp(cur.Status, newCondition) {
+	if isIssuerHasStatusConditionIgnoreTimestamp(cur.Status(), newCondition) {
 		return cur, nil
 	}
 
-	new := cur.DeepCopy()
-	if new.Status == nil {
-		new.Status = &certmanagerv1beta1.DigicertIssuerStatus{
+	newStatus := cur.Status().DeepCopy()
+	if newStatus == nil {
+		newStatus = &certmanagerv1beta1.DigicertIssuerStatus{
 			Conditions: make([]certmanagerv1beta1.DigicertIssuerCondition, 0),
 		}
 	}
 
-	if new.Status.Conditions == nil || len(new.Status.Conditions) == 0 {
-		new.Status.Conditions = []certmanagerv1beta1.DigicertIssuerCondition{newCondition}
-		return patchDigicertIssuerStatus(ctx, k8sClient, cur, new)
+	if newStatus.Conditions == nil || len(newStatus.Conditions) == 0 {
+		newStatus.Conditions = []certmanagerv1beta1.DigicertIssuerCondition{newCondition}
+		return cur.PatchStatus(ctx, k8sClient, newStatus)
 	}
 
-	for idx, curCondition := range new.Status.Conditions {
+	for idx, curCondition := range newStatus.Conditions {
 		if curCondition.Type == newCondition.Type {
-			new.Status.Conditions[idx] = newCondition
+			newStatus.Conditions[idx] = newCondition
 		}
 	}
 
-	return patchDigicertIssuerStatus(ctx, k8sClient, cur, new)
+	return cur.PatchStatus(ctx, k8sClient, newStatus)
 }
 
-func EnsureDigicertIssuerStatusInitialized(ctx context.Context, k8sClient client.Client, issuer *certmanagerv1beta1.DigicertIssuer) (*certmanagerv1beta1.DigicertIssuer, error) {
+func EnsureDigicertIssuerStatusInitialized(ctx context.Context, k8sClient client.Client, issuer Issuer) (Issuer, error) {
 	if isDigicertIssuerReady(issuer) {
 		return issuer, nil
 	}
@@ -74,8 +167,8 @@ func EnsureDigicertIssuerStatusInitialized(ctx context.Context, k8sClient client
 	)
 }
 
-func isDigicertIssuerReady(issuer *certmanagerv1beta1.DigicertIssuer) bool {
-	return isIssuerHasStatusConditionIgnoreTimestamp(issuer.Status, certmanagerv1beta1.DigicertIssuerCondition{
+func isDigicertIssuerReady(issuer Issuer) bool {
+	return isIssuerHasStatusConditionIgnoreTimestamp(issuer.Status(), certmanagerv1beta1.DigicertIssuerCondition{
 		Type:   certmanagerv1beta1.ConditionReady,
 		Status: certmanagerv1beta1.ConditionTrue,
 	})
