@@ -16,5 +16,8 @@ path = [
   "Makefile.maker.yaml",
   "vendor/modules.txt",
 ]
-SPDX-FileCopyrightText = "SAP SE or an SAP affiliate company"
+SPDX-FileCopyrightText = [
+  "SAP SE or an SAP affiliate company",
+  "Copyright 2022 SAP SE"
+]
 SPDX-License-Identifier = "Apache-2.0"
