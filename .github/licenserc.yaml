@@ -31,6 +31,10 @@ header:
     - '*Dockerfile*'
     - 'Makefile'
     - 'VERSION'
+    - '**/*.jsonl'
+    - '.envrc'
+    - '**/*.license'
+    - '**/*.nix'
     
   comment: on-failure
   

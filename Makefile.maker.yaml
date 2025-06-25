@@ -1,0 +1,48 @@
+# SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company
+#
+# SPDX-License-Identifier: Apache-2.0
+
+metadata:
+  url: https://github.com/sapcc/digicert-issuer
+
+binaries:
+  - name:        digicert-issuer
+    fromPackage: ./cmd/digicert-issuer
+    installTo:   bin/
+
+controllerGen:
+  enabled: true
+  crdOutputPath: config/crd/bases
+  rbacRoleName: digicert-issuer-role
+
+dockerfile:
+  enabled: true
+  entrypoint: [ "/digicert-issuer" ]
+
+golang:
+  setGoModVersion: true
+
+golangciLint:
+  createConfig: true
+
+githubWorkflow:
+  ci:
+    enabled: true
+    coveralls: true
+
+renovate:
+  enabled: true
+  assignees:
+    - kayrus
+
+variables:
+  BUILD_DATE: '$(shell date -u +"%Y-%m-%dT%H:%M:%SZ")'
+  GIT_REVISION: '$(shell git rev-parse --short HEAD)'
+  GIT_BRANCH: '$(shell git rev-parse --abbrev-ref HEAD)'
+  VERSION: '$(shell cat VERSION)'
+  GO_BUILDFLAGS: '-trimpath'
+  GO_LDFLAGS: '-X github.com/sapcc/digicert-issuer/pkg/version.Revision=$(GIT_REVISION) -X github.com/sapcc/digicert-issuer/pkg/version.Branch=$(GIT_BRANCH) -X github.com/sapcc/digicert-issuer/pkg/version.BuildDate=$(BUILD_DATE) -X github.com/sapcc/digicert-issuer/pkg/version.Version=$(VERSION)'
+
+verbatim: |
+  run: build/digicert-issuer
+    ./build/digicert-issuer

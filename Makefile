@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # Image URL to use all building/pushing image targets
 IMG ?= ghcr.io/sapcc/digicert-issuer
 CRD_OPTIONS ?= "crd:crdVersions=v1"
@@ -12,7 +16,7 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
-all: generate manifests build
+build-all: generate manifests build
 
 # Run tests
 test: generate fmt vet manifests
@@ -26,7 +30,7 @@ build: VERSION=$(shell cat VERSION)
 build: fmt vet
 	go build\
 		-ldflags "-s -w -X github.com/sapcc/digicert-issuer/pkg/version.Revision=$(GIT_REVISION) -X github.com/sapcc/digicert-issuer/pkg/version.Branch=$(GIT_BRANCH) -X github.com/sapcc/digicert-issuer/pkg/version.BuildDate=$(BUILD_DATE) -X github.com/sapcc/digicert-issuer/pkg/version.Version=$(VERSION)"\
-		-o bin/digicert-issuer main.go
+		-o bin/digicert-issuer cmd/digicert-issuer/main.go
 
 # Make sure to run the deploy-local target beforehand.
 # Run the digicert-issuer against the configured Kubernetes cluster in ~/.kube/config with debug logging enabled.
@@ -134,3 +138,58 @@ $(CONTROLLER_GEN): $(TOOLS_BIN_DIR)
 doc-gen: $(DOC_GEN)
 $(DOC_GEN): $(TOOLS_BIN_DIR)
 	GOBIN=$(TOOLS_BIN_DIR) go install ./cmd/doc-gen
+
+UNAME_S := $(shell uname -s)
+SED = sed
+XARGS = xargs
+ifeq ($(UNAME_S),Darwin)
+	SED = gsed
+	XARGS = gxargs
+endif
+
+GO_COVERPKGS := $(shell go list ./...)
+GO_TESTPKGS := ./...
+
+tidy-deps: FORCE
+	go mod tidy
+	go mod verify
+
+build/cover.out: FORCE install-ginkgo generate install-setup-envtest | build
+	@printf "\e[1;36m>> Running tests\e[0m\n"
+	KUBEBUILDER_ASSETS=$$(setup-envtest use 1.32 -p path) ginkgo run --randomize-all -output-dir=build $(GO_BUILDFLAGS) -ldflags '-s -w $(GO_LDFLAGS)' -covermode=count -coverpkg=$(subst $(space),$(comma),$(GO_COVERPKGS)) $(GO_TESTPKGS)
+	@mv build/coverprofile.out build/cover.out
+
+build/cover.html: build/cover.out
+	@printf "\e[1;36m>> go tool cover > build/cover.html\e[0m\n"
+	@go tool cover -html $< -o $@
+
+install-ginkgo: FORCE
+	@if ! hash ginkgo 2>/dev/null; then printf "\e[1;36m>> Installing ginkgo (this may take a while)...\e[0m\n"; go install github.com/onsi/ginkgo/v2/ginkgo@latest; fi
+
+install-setup-envtest: FORCE
+	@if ! hash setup-envtest 2>/dev/null; then printf "\e[1;36m>> Installing setup-envtest (this may take a while)...\e[0m\n"; go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest; fi
+
+check-dependency-licenses: FORCE install-go-licence-detector
+	@printf "\e[1;36m>> go-licence-detector\e[0m\n"
+	@go list -m -mod=readonly -json all | go-licence-detector -includeIndirect -rules .license-scan-rules.json -overrides .license-scan-overrides.jsonl
+
+install-go-licence-detector: FORCE
+	@if ! hash go-licence-detector 2>/dev/null; then printf "\e[1;36m>> Installing go-licence-detector (this may take a while)...\e[0m\n"; go install go.elastic.co/go-licence-detector@latest; fi
+
+install-addlicense: FORCE
+	@if ! hash addlicense 2>/dev/null; then printf "\e[1;36m>> Installing addlicense (this may take a while)...\e[0m\n"; go install github.com/google/addlicense@latest; fi
+
+license-headers: FORCE install-addlicense
+	@printf "\e[1;36m>> addlicense (for license headers on source code files)\e[0m\n"
+	@printf "%s\0" $(patsubst $(shell awk '$$1 == "module" {print $$2}' go.mod)%,.%/*.go,$(shell go list ./...)) | $(XARGS) -0 -I{} bash -c 'year="$$(grep 'Copyright' {} | head -n1 | grep -E -o '"'"'[0-9]{4}(-[0-9]{4})?'"'"')"; gawk -i inplace '"'"'{if (display) {print} else {!/^\/\*/ && !/^\*/}}; {if (!display && $$0 ~ /^(package |$$)/) {display=1} else { }}'"'"' {}; addlicense -c "SAP SE or an SAP affiliate company" -s=only -y "$$year" -- {}; $(SED) -i '"'"'1s+// Copyright +// SPDX-FileCopyrightText: +'"'"' {}'
+	@printf "\e[1;36m>> reuse annotate (for license headers on other files)\e[0m\n"
+	@reuse lint -j | jq -r '.non_compliant.missing_licensing_info[]' | grep -vw vendor | $(XARGS) reuse annotate -c 'SAP SE or an SAP affiliate company' -l Apache-2.0 --skip-unrecognised
+	@printf "\e[1;36m>> reuse download --all\e[0m\n"
+	@reuse download --all
+	@printf "\e[1;35mPlease review the changes. If *.license files were generated, consider instructing go-makefile-maker to add overrides to REUSE.toml instead.\e[0m\n"
+
+check-license-headers: FORCE install-addlicense tidy-deps
+	@printf "\e[1;36m>> addlicense --check\e[0m\n"
+	@addlicense --check -- $(patsubst $(shell awk '$$1 == "module" {print $$2}' go.mod)%,.%/*.go,$(shell go list ./...))
+
+.PHONY: FORCE
