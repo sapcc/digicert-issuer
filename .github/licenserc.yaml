@@ -2,7 +2,7 @@ header:
   license:
     spdx-id: Apache-2.0
     content: |
-      SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and sapcc contributors
+      SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company
       SPDX-License-Identifier: Apache-2.0
 
   paths: # `paths` are the path list that will be checked (and fixed) by license-eye, default is ['**'].
