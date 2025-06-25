@@ -14,9 +14,6 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 
 	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
-	certmanagerv1beta1 "github.com/sapcc/digicert-issuer/apis/certmanager/v1beta1"
-	certmanagerv1beta1controller "github.com/sapcc/digicert-issuer/controllers/certmanager"
-	"github.com/sapcc/digicert-issuer/pkg/version"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -24,6 +21,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+
+	certmanagerv1beta1 "github.com/sapcc/digicert-issuer/apis/certmanager/v1beta1"
+	certmanagerv1beta1controller "github.com/sapcc/digicert-issuer/controllers/certmanager"
+	"github.com/sapcc/digicert-issuer/pkg/version"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -105,7 +106,7 @@ func main() {
 	handleError(err, "problem running manager")
 }
 
-func handleError(err error, message string, keysAndVals ...interface{}) {
+func handleError(err error, message string, keysAndVals ...any) {
 	if err != nil {
 		setupLog.Error(err, message, keysAndVals...)
 		os.Exit(1)

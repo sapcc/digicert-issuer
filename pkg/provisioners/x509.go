@@ -51,7 +51,7 @@ func getCommonName(cr *x509.CertificateRequest) string {
 		return cr.Subject.CommonName
 	}
 
-	if cr.DNSNames != nil && len(cr.DNSNames) > 0 {
+	if len(cr.DNSNames) > 0 {
 		return cr.DNSNames[0]
 	}
 

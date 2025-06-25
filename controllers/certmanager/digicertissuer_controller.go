@@ -9,12 +9,13 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/hashicorp/go-multierror"
-	certmanagerv1beta1 "github.com/sapcc/digicert-issuer/apis/certmanager/v1beta1"
-	"github.com/sapcc/digicert-issuer/pkg/k8sutils"
-	"github.com/sapcc/digicert-issuer/pkg/provisioners"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	certmanagerv1beta1 "github.com/sapcc/digicert-issuer/apis/certmanager/v1beta1"
+	"github.com/sapcc/digicert-issuer/pkg/k8sutils"
+	"github.com/sapcc/digicert-issuer/pkg/provisioners"
 )
 
 // DigicertIssuerReconciler reconciles a DigicertIssuer object
@@ -33,7 +34,7 @@ func (r *DigicertIssuerReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	logger := r.log.WithValues("digicertissuer", req.NamespacedName)
 
 	issuer := new(certmanagerv1beta1.DigicertIssuer)
-	if err := r.Client.Get(ctx, req.NamespacedName, issuer); err != nil {
+	if err := r.Get(ctx, req.NamespacedName, issuer); err != nil {
 		logger.Error(err, "failed to get issuer")
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
@@ -44,30 +45,38 @@ func (r *DigicertIssuerReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	if err := validateDigicertIssuerSpec(issuer.Spec); err != nil {
-		k8sutils.SetDigicertIssuerStatusConditionType(
+		if _, err := k8sutils.SetDigicertIssuerStatusConditionType(
 			ctx, r.Client, issuer, certmanagerv1beta1.ConditionConfigurationError, certmanagerv1beta1.ConditionTrue,
 			certmanagerv1beta1.ConditionReasonInvalidIssuerSpec, err.Error(),
-		)
+		); err != nil {
+			logger.Error(err, "failed to set issuer status condition")
+		}
 		logger.Error(err, "issuer.spec is invalid")
 		return ctrl.Result{}, err
 	}
-	k8sutils.SetDigicertIssuerStatusConditionType(
+	if _, err := k8sutils.SetDigicertIssuerStatusConditionType(
 		ctx, r.Client, issuer, certmanagerv1beta1.ConditionConfigurationError, certmanagerv1beta1.ConditionFalse, "", "",
-	)
+	); err != nil {
+		logger.Error(err, "failed to clear issuer status condition")
+	}
 
 	secretRef := issuer.Spec.Provisioner.APITokenReference
 	digicertAPIToken, err := k8sutils.GetSecretData(ctx, r.Client, issuer.GetNamespace(), secretRef.Name, secretRef.Key)
 	if err != nil {
 		logger.Error(err, "failed to get provisioner secret containing the API token")
-		k8sutils.SetDigicertIssuerStatusConditionType(
+		if _, err := k8sutils.SetDigicertIssuerStatusConditionType(
 			ctx, r.Client, issuer, certmanagerv1beta1.ConditionConfigurationError, certmanagerv1beta1.ConditionTrue,
 			certmanagerv1beta1.ConditionReasonSecretNotFoundOrEmpty, err.Error(),
-		)
+		); err != nil {
+			logger.Error(err, "failed to set issuer status condition")
+		}
 		return ctrl.Result{}, err
 	}
-	k8sutils.SetDigicertIssuerStatusConditionType(
+	if _, err := k8sutils.SetDigicertIssuerStatusConditionType(
 		ctx, r.Client, issuer, certmanagerv1beta1.ConditionConfigurationError, certmanagerv1beta1.ConditionFalse, "", "",
-	)
+	); err != nil {
+		logger.Error(err, "failed to clear issuer status condition")
+	}
 
 	prov, err := provisioners.New(issuer, digicertAPIToken)
 	if err != nil {
@@ -103,7 +112,7 @@ func validateDigicertIssuerSpec(issuerSpec certmanagerv1beta1.DigicertIssuerSpec
 	if provisionerSpec.APITokenReference.Key == "" {
 		errs = multierror.Append(errs, errors.New("spec.provisioner.apiTokenReference.key missing"))
 	}
-	if provisionerSpec.OrganizationUnits == nil || len(provisionerSpec.OrganizationUnits) == 0 {
+	if len(provisionerSpec.OrganizationUnits) == 0 {
 		errs = multierror.Append(errs, errors.New("spec.provisioner.organizationalUnits missing"))
 	}
 	if provisionerSpec.OrganizationID == nil && provisionerSpec.OrganizationName == "" {

@@ -13,7 +13,7 @@ import (
 func mapToOrderType(s string) (certcentral.OrderType, bool) {
 	orderTypes := listAvailableOrderTypes()
 	for _, t := range orderTypes {
-		if strings.ToLower(s) == strings.ToLower(t.String()) {
+		if strings.EqualFold(s, t.String()) {
 			return t, true
 		}
 	}
@@ -23,7 +23,7 @@ func mapToOrderType(s string) (certcentral.OrderType, bool) {
 func listAvailableOrderTypes() []certcentral.OrderType {
 	var orderTypes []certcentral.OrderType
 	v := reflect.ValueOf(certcentral.OrderTypes)
-	for i := 0; i < v.NumField(); i++ {
+	for i := range v.NumField() {
 		orderTypes = append(orderTypes, v.Field(i).Interface().(certcentral.OrderType))
 	}
 	return orderTypes
@@ -32,7 +32,7 @@ func listAvailableOrderTypes() []certcentral.OrderType {
 func mapToPaymentMethod(s string) (certcentral.PaymentMethod, bool) {
 	paymentMethods := listAvailablePaymentMethods()
 	for _, m := range paymentMethods {
-		if strings.ToLower(s) == strings.ToLower(m.String()) {
+		if strings.EqualFold(s, m.String()) {
 			return m, true
 		}
 	}
@@ -42,7 +42,7 @@ func mapToPaymentMethod(s string) (certcentral.PaymentMethod, bool) {
 func listAvailablePaymentMethods() []certcentral.PaymentMethod {
 	var paymentMethods []certcentral.PaymentMethod
 	v := reflect.ValueOf(certcentral.PaymentMethods)
-	for i := 0; i < v.NumField(); i++ {
+	for i := range v.NumField() {
 		paymentMethods = append(paymentMethods, v.Field(i).Interface().(certcentral.PaymentMethod))
 	}
 	return paymentMethods
