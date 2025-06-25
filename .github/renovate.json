@@ -3,13 +3,53 @@
   "extends": [
     "config:recommended",
     "default:pinDigestsDisabled",
-    "mergeConfidence:all-badges"
+    "mergeConfidence:all-badges",
+    "docker:disable"
   ],
+  "assignees": [
+    "kayrus"
+  ],
+  "commitMessageAction": "Renovate: Update",
+  "constraints": {
+    "go": "1.24"
+  },
   "dependencyDashboardOSVVulnerabilitySummary": "all",
   "osvVulnerabilityAlerts": true,
   "postUpdateOptions": [
     "gomodTidy",
     "gomodUpdateImportPaths"
+  ],
+  "packageRules": [
+    {
+      "matchPackageNames": [
+        "golang"
+      ],
+      "allowedVersions": "1.24.x"
+    },
+    {
+      "matchPackageNames": [
+        "/^github\\.com\\/sapcc\\/.*/"
+      ],
+      "automerge": true,
+      "groupName": "github.com/sapcc"
+    },
+    {
+      "matchPackageNames": [
+        "!/^github\\.com\\/sapcc\\/.*/",
+        "/.*/"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "groupName": "External dependencies"
+    },
+    {
+      "matchPackageNames": [
+        "/^k8s.io\\//"
+      ],
+      "allowedVersions": "0.28.x"
+    }
   ],
   "prHourlyLimit": 0,
   "schedule": [

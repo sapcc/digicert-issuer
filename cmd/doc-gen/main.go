@@ -1,21 +1,8 @@
-// SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and sapcc contributors
+// SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company
 // SPDX-License-Identifier: Apache-2.0
 
-/*
-Copyright 2022 SAP SE.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company
+// SPDX-License-Identifier: Apache-2.0
 
 package main
 
@@ -26,6 +13,7 @@ import (
 	"go/doc"
 	"go/parser"
 	"go/token"
+	"log"
 	"os"
 	"reflect"
 	"strings"
@@ -60,7 +48,7 @@ func main() {
 
 func toSectionLink(name string) string {
 	name = strings.ToLower(name)
-	name = strings.Replace(name, " ", "-", -1)
+	name = strings.ReplaceAll(name, " ", "-")
 	return name
 }
 
@@ -95,7 +83,7 @@ func printAPIDocs(paths []string) {
 
 			fmt.Println("| Field | Description | Scheme | Required |")
 			fmt.Println("| ----- | ----------- | ------ | -------- |")
-			fields := t[1:(len(t))]
+			fields := t[1:]
 			for _, f := range fields {
 				fmt.Println("|", f.Name, "|", f.Doc, "|", f.Type, "|", f.Mandatory, "|")
 			}
@@ -156,7 +144,10 @@ func astFrom(filePath string) *doc.Package {
 	}
 
 	m[filePath] = f
-	apkg, _ := ast.NewPackage(fset, m, nil, nil)
+	apkg, err := ast.NewPackage(fset, m, nil, nil)
+	if err != nil {
+		log.Println("Error parsing package:", err)
+	}
 
 	return doc.New(apkg, "", 0)
 }
@@ -172,11 +163,11 @@ func fmtRawDoc(rawDoc string) string {
 	// Ignore all lines after ---
 	rawDoc = strings.Split(rawDoc, "---")[0]
 
-	for _, line := range strings.Split(rawDoc, "\n") {
+	for line := range strings.SplitSeq(rawDoc, "\n") {
 		line = strings.TrimRight(line, " ")
 		leading := strings.TrimLeft(line, " ")
 		switch {
-		case len(line) == 0: // Keep paragraphs
+		case line == "": // Keep paragraphs
 			delPrevChar()
 			buffer.WriteString("\n\n")
 		case strings.HasPrefix(leading, "TODO"): // Ignore one line TODOs
@@ -193,11 +184,11 @@ func fmtRawDoc(rawDoc string) string {
 	}
 
 	postDoc := strings.TrimRight(buffer.String(), "\n")
-	postDoc = strings.Replace(postDoc, "\\\"", "\"", -1) // replace user's \" to "
-	postDoc = strings.Replace(postDoc, "\"", "\\\"", -1) // Escape "
-	postDoc = strings.Replace(postDoc, "\n", "\\n", -1)
-	postDoc = strings.Replace(postDoc, "\t", "\\t", -1)
-	postDoc = strings.Replace(postDoc, "|", "\\|", -1)
+	postDoc = strings.ReplaceAll(postDoc, "\\\"", "\"") // replace user's \" to "
+	postDoc = strings.ReplaceAll(postDoc, "\"", "\\\"") // Escape "
+	postDoc = strings.ReplaceAll(postDoc, "\n", "\\n")
+	postDoc = strings.ReplaceAll(postDoc, "\t", "\\t")
+	postDoc = strings.ReplaceAll(postDoc, "|", "\\|")
 
 	return postDoc
 }
@@ -253,21 +244,19 @@ func fieldRequired(field *ast.Field) bool {
 }
 
 func fieldType(typ ast.Expr) string {
-	switch typ.(type) {
+	switch v := typ.(type) {
 	case *ast.Ident:
-		return toLink(typ.(*ast.Ident).Name)
+		return toLink(v.Name)
 	case *ast.StarExpr:
-		return "*" + toLink(fieldType(typ.(*ast.StarExpr).X))
+		return "*" + toLink(fieldType(v.X))
 	case *ast.SelectorExpr:
-		e := typ.(*ast.SelectorExpr)
-		pkg := e.X.(*ast.Ident)
-		t := e.Sel
+		pkg := v.X.(*ast.Ident)
+		t := v.Sel
 		return toLink(pkg.Name + "." + t.Name)
 	case *ast.ArrayType:
-		return "[]" + toLink(fieldType(typ.(*ast.ArrayType).Elt))
+		return "[]" + toLink(fieldType(v.Elt))
 	case *ast.MapType:
-		mapType := typ.(*ast.MapType)
-		return "map[" + toLink(fieldType(mapType.Key)) + "]" + toLink(fieldType(mapType.Value))
+		return "map[" + toLink(fieldType(v.Key)) + "]" + toLink(fieldType(v.Value))
 	default:
 		return ""
 	}

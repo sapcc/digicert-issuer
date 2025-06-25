@@ -1,6 +1,10 @@
+// SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company
+//
+// SPDX-License-Identifier: Apache-2.0
+
 module github.com/sapcc/digicert-issuer
 
-go 1.23.0
+go 1.24
 
 require (
 	github.com/cert-manager/cert-manager v1.15.4

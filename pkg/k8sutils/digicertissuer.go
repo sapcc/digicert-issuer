@@ -1,21 +1,8 @@
-// SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and sapcc contributors
+// SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company
 // SPDX-License-Identifier: Apache-2.0
 
-/*
-Copyright 2022 SAP SE.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company
+// SPDX-License-Identifier: Apache-2.0
 
 package k8sutils
 
@@ -23,12 +10,13 @@ import (
 	"context"
 	"time"
 
-	certmanagerv1beta1 "github.com/sapcc/digicert-issuer/apis/certmanager/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	certmanagerv1beta1 "github.com/sapcc/digicert-issuer/apis/certmanager/v1beta1"
 )
 
-func SetDigicertIssuerStatusConditionType(ctx context.Context, k8sClient client.Client, cur *certmanagerv1beta1.DigicertIssuer, statusType certmanagerv1beta1.ConditionType, status certmanagerv1beta1.ConditionStatus, reason certmanagerv1beta1.ConditionReason, message string) (*certmanagerv1beta1.DigicertIssuer, error) {
+func SetDigicertIssuerStatusConditionType(ctx context.Context, k8sClient client.Client, curIssuer *certmanagerv1beta1.DigicertIssuer, statusType certmanagerv1beta1.ConditionType, status certmanagerv1beta1.ConditionStatus, reason certmanagerv1beta1.ConditionReason, message string) (*certmanagerv1beta1.DigicertIssuer, error) {
 	ts := metav1.NewTime(time.Now().UTC())
 	newCondition := certmanagerv1beta1.DigicertIssuerCondition{
 		Type:               statusType,
@@ -39,29 +27,29 @@ func SetDigicertIssuerStatusConditionType(ctx context.Context, k8sClient client.
 	}
 
 	// Skip the update if the condition is already present and only the timestamp changed.
-	if isIssuerHasStatusConditionIgnoreTimestamp(cur.Status, newCondition) {
-		return cur, nil
+	if isIssuerHasStatusConditionIgnoreTimestamp(curIssuer.Status, newCondition) {
+		return curIssuer, nil
 	}
 
-	new := cur.DeepCopy()
-	if new.Status == nil {
-		new.Status = &certmanagerv1beta1.DigicertIssuerStatus{
+	newIssuer := curIssuer.DeepCopy()
+	if newIssuer.Status == nil {
+		newIssuer.Status = &certmanagerv1beta1.DigicertIssuerStatus{
 			Conditions: make([]certmanagerv1beta1.DigicertIssuerCondition, 0),
 		}
 	}
 
-	if new.Status.Conditions == nil || len(new.Status.Conditions) == 0 {
-		new.Status.Conditions = []certmanagerv1beta1.DigicertIssuerCondition{newCondition}
-		return patchDigicertIssuerStatus(ctx, k8sClient, cur, new)
+	if len(newIssuer.Status.Conditions) == 0 {
+		newIssuer.Status.Conditions = []certmanagerv1beta1.DigicertIssuerCondition{newCondition}
+		return patchDigicertIssuerStatus(ctx, k8sClient, curIssuer, newIssuer)
 	}
 
-	for idx, curCondition := range new.Status.Conditions {
+	for idx, curCondition := range newIssuer.Status.Conditions {
 		if curCondition.Type == newCondition.Type {
-			new.Status.Conditions[idx] = newCondition
+			newIssuer.Status.Conditions[idx] = newCondition
 		}
 	}
 
-	return patchDigicertIssuerStatus(ctx, k8sClient, cur, new)
+	return patchDigicertIssuerStatus(ctx, k8sClient, curIssuer, newIssuer)
 }
 
 func EnsureDigicertIssuerStatusInitialized(ctx context.Context, k8sClient client.Client, issuer *certmanagerv1beta1.DigicertIssuer) (*certmanagerv1beta1.DigicertIssuer, error) {
@@ -81,13 +69,13 @@ func isDigicertIssuerReady(issuer *certmanagerv1beta1.DigicertIssuer) bool {
 	})
 }
 
-func patchDigicertIssuerStatus(ctx context.Context, k8sClient client.Client, cur, new *certmanagerv1beta1.DigicertIssuer) (*certmanagerv1beta1.DigicertIssuer, error) {
-	patch := client.MergeFrom(cur)
-	if err := k8sClient.Status().Patch(ctx, new, patch); err != nil {
-		return cur, err
+func patchDigicertIssuerStatus(ctx context.Context, k8sClient client.Client, curIssuer, newIssuer *certmanagerv1beta1.DigicertIssuer) (*certmanagerv1beta1.DigicertIssuer, error) {
+	patch := client.MergeFrom(curIssuer)
+	if err := k8sClient.Status().Patch(ctx, newIssuer, patch); err != nil {
+		return curIssuer, err
 	}
 
-	return new, nil
+	return newIssuer, nil
 }
 
 func isIssuerHasStatusConditionIgnoreTimestamp(issuerStatus *certmanagerv1beta1.DigicertIssuerStatus, condition certmanagerv1beta1.DigicertIssuerCondition) bool {

@@ -1,32 +1,21 @@
-// SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and sapcc contributors
+// SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company
 // SPDX-License-Identifier: Apache-2.0
 
-/*
-Copyright 2022 SAP SE.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company
+// SPDX-License-Identifier: Apache-2.0
 
 package provisioners
 
 import (
 	"context"
 	"crypto/x509"
+	"errors"
 	"fmt"
 
 	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
-	"github.com/sapcc/digicert-issuer/apis/certmanager/v1beta1"
 	certcentral "github.com/sapcc/go-certcentral"
+
+	"github.com/sapcc/digicert-issuer/apis/certmanager/v1beta1"
 )
 
 const defaultValidityYears = 1
@@ -75,7 +64,7 @@ func New(issuer *v1beta1.DigicertIssuer, apiToken string) (*CertCentral, error) 
 	validityYears := issuer.Spec.Provisioner.ValidityYears
 	validityDays := issuer.Spec.Provisioner.ValidityDays
 	if validityYears != nil && validityDays != nil {
-		return nil, fmt.Errorf("can not handle both validityYears and validityDays")
+		return nil, errors.New("can not handle both validityYears and validityDays")
 	}
 
 	if validityYears == nil && validityDays == nil {
@@ -129,7 +118,7 @@ func New(issuer *v1beta1.DigicertIssuer, apiToken string) (*CertCentral, error) 
 	}, nil
 }
 
-func (c *CertCentral) Sign(ctx context.Context, cr *certmanagerv1.CertificateRequest) ([]byte, []byte, *certcentral.Order, error) {
+func (c *CertCentral) Sign(ctx context.Context, cr *certmanagerv1.CertificateRequest) (rootCAPEM, crtChainPEMs []byte, orderResponse *certcentral.Order, err error) {
 	certReq, err := decodeCertificateRequest(cr.Spec.Request)
 	if err != nil {
 		return nil, nil, nil, err
@@ -152,7 +141,7 @@ func (c *CertCentral) Sign(ctx context.Context, cr *certmanagerv1.CertificateReq
 		orderValidity.Years = *c.validityYears
 	}
 
-	orderResponse, err := c.client.SubmitOrder(certcentral.Order{
+	orderResponse, err = c.client.SubmitOrder(certcentral.Order{
 		Certificate: certcentral.Certificate{
 			CommonName:        getCommonName(certReq),
 			DNSNames:          sans,
@@ -186,7 +175,7 @@ func (c *CertCentral) Sign(ctx context.Context, cr *certmanagerv1.CertificateReq
 		return nil, nil, nil, err
 	}
 
-	rootCAPEM, crtChainPEMs, err := encodePem(crtChain)
+	rootCAPEM, crtChainPEMs, err = encodePem(crtChain)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -194,16 +183,16 @@ func (c *CertCentral) Sign(ctx context.Context, cr *certmanagerv1.CertificateReq
 	return rootCAPEM, crtChainPEMs, orderResponse, nil
 }
 
-func (c *CertCentral) Download(ctx context.Context, cr *certmanagerv1.CertificateRequest) ([]byte, []byte, error) {
+func (c *CertCentral) Download(ctx context.Context, cr *certmanagerv1.CertificateRequest) (rootCAPEM, crtChainPEMs []byte, err error) {
 	certID := cr.GetAnnotations()["certmanager.cloud.sap/digicert-cert-id"]
 	if certID == "" {
 		// TODO: get cert_id by order_id if missing
-		return nil, nil, fmt.Errorf("no cert id given for %s", cr.ObjectMeta.Name)
+		return nil, nil, fmt.Errorf("no cert id given for %s", cr.Name)
 	}
 
 	chain, err := c.client.GetCertificateChain(certID)
 	if err != nil {
-		return nil, nil, fmt.Errorf("error receiving certificate chain %s for request %s: %s", certID, cr.ObjectMeta.Name, err)
+		return nil, nil, fmt.Errorf("error receiving certificate chain %s for request %s: %w", certID, cr.Name, err)
 	}
 
 	crtChain := make([]*x509.Certificate, 0)
@@ -218,9 +207,9 @@ func (c *CertCentral) Download(ctx context.Context, cr *certmanagerv1.Certificat
 	return encodePem(crtChain)
 }
 
-func encodePem(crtChain []*x509.Certificate) ([]byte, []byte, error) {
-	rootCAPEM := make([]byte, 0)
-	crtChainPEMs := make([]byte, 0)
+func encodePem(crtChain []*x509.Certificate) (rootCAPEM, crtChainPEMs []byte, err error) {
+	rootCAPEM = make([]byte, 0)
+	crtChainPEMs = make([]byte, 0)
 
 	for _, crt := range crtChain {
 		crtPEM, err := encodeCertificate(crt)
