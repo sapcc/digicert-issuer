@@ -4,6 +4,8 @@ This Document documents the types introduced by the DigiCert Issuer to be consum
 > Note this document is generated from code comments. When contributing a change to this document please do so by changing the code comments.
 
 ## Table of Contents
+* [ClusterDigicertIssuer](#clusterdigicertissuer)
+* [ClusterDigicertIssuerList](#clusterdigicertissuerlist)
 * [DigicertIssuer](#digicertissuer)
 * [DigicertIssuerCondition](#digicertissuercondition)
 * [DigicertIssuerList](#digicertissuerlist)
@@ -11,6 +13,29 @@ This Document documents the types introduced by the DigiCert Issuer to be consum
 * [DigicertIssuerStatus](#digicertissuerstatus)
 * [DigicertProvisioner](#digicertprovisioner)
 * [SecretKeySelector](#secretkeyselector)
+
+## ClusterDigicertIssuer
+
+ClusterDigicertIssuer is the Schema for the clusterdigicertissuers API
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| metadata |  | [metav1.ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#objectmeta-v1-meta) | false |
+| spec |  | [DigicertIssuerSpec](#digicertissuerspec) | true |
+| status |  | *[DigicertIssuerStatus](#digicertissuerstatus) | false |
+
+[Back to TOC](#table-of-contents)
+
+## ClusterDigicertIssuerList
+
+ClusterDigicertIssuerList contains a list of ClusterDigicertIssuer
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| metadata |  | [metav1.ListMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#listmeta-v1-meta) | false |
+| items |  | [][ClusterDigicertIssuer](#clusterdigicertissuer) | true |
+
+[Back to TOC](#table-of-contents)
 
 ## DigicertIssuer
 
@@ -72,7 +97,7 @@ DigicertIssuerStatus defines the observed state of DigicertIssuer
 
 ## DigicertProvisioner
 
-DigiCertProvisioner contains the DigiCert provisioner configuration.
+DigicertProvisioner contains the DigiCert provisioner configuration.
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |

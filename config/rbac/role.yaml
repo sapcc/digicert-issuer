@@ -43,6 +43,7 @@ rules:
 - apiGroups:
   - certmanager.cloud.sap
   resources:
+  - clusterdigicertissuers
   - digicertissuers
   verbs:
   - create
@@ -55,6 +56,7 @@ rules:
 - apiGroups:
   - certmanager.cloud.sap
   resources:
+  - clusterdigicertissuers/status
   - digicertissuers/status
   verbs:
   - get
