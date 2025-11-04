@@ -38,6 +38,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
@@ -48,6 +49,7 @@ type CertificateRequestReconciler struct {
 	log                                logr.Logger
 	BackoffDurationProvisionerNotReady time.Duration
 	BackoffDurationRequestPending      time.Duration
+	CacheSyncTimeout                   time.Duration
 	recorder                           record.EventRecorder
 	DefaultProviderNamespace           string
 	DisableRootCA                      bool
@@ -76,6 +78,7 @@ func (r *CertificateRequestReconciler) SetupWithManager(mgr ctrl.Manager) error 
 	r.Client = mgr.GetClient()
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&cmapi.CertificateRequest{}).
+		WithOptions(controller.Options{CacheSyncTimeout: r.CacheSyncTimeout}).
 		WithEventFilter(filter).
 		Complete(r)
 }
