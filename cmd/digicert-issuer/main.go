@@ -64,6 +64,7 @@ func main() {
 		printVersionAndExit                bool
 		backoffDurationProvisionerNotReady time.Duration
 		backoffDurationRequestPending      time.Duration
+		cacheSyncTimeout                   time.Duration
 		clusterIssuerNamespace             string
 		disableRootCA                      bool
 	)
@@ -79,6 +80,9 @@ func main() {
 
 	flag.DurationVar(&backoffDurationRequestPending, "backoff-duration-request-pending", 15*time.Minute,
 		"The backoff duration if certificate request is pending.")
+
+	flag.DurationVar(&cacheSyncTimeout, "cache-sync-timeout", 2*time.Minute,
+		"The timeout on waiting for cache to sync.")
 
 	flag.StringVar(&clusterIssuerNamespace, "cluster-issuer-namespace", "",
 		"Namespace, from which clusterdigicertissuer secret are read for ClusterDigicertIssuers. If left empty, ClusterDigicertIssuer is not reconciled.")
@@ -117,6 +121,7 @@ func main() {
 	err = (&certmanagerv1beta1controller.CertificateRequestReconciler{
 		BackoffDurationProvisionerNotReady: backoffDurationProvisionerNotReady,
 		BackoffDurationRequestPending:      backoffDurationRequestPending,
+		CacheSyncTimeout:                   cacheSyncTimeout,
 		DefaultProviderNamespace:           getValueFromEnvironmentOrDefault("POD_NAMESPACE", "kube-system"),
 		DisableRootCA:                      disableRootCA,
 	}).SetupWithManager(mgr)
