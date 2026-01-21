@@ -69,6 +69,12 @@ func main() {
 		disableRootCA                      bool
 	)
 
+	logOpts := zap.Options{
+		Development: true,
+	}
+
+	logOpts.BindFlags(flag.CommandLine)
+
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080",
 		"The address the metric endpoint binds to.")
 
@@ -97,7 +103,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
+	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&logOpts)))
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Cache:  cache.Options{DefaultTransform: cache.TransformStripManagedFields()},
