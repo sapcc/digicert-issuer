@@ -67,6 +67,11 @@ spec:
                     - key
                     - name
                     type: object
+                  preferredChain:
+                    description: PreferredChain requests a preferred trust chain root
+                      common name. This is best-effort and falls back to the default
+                      chain when not available.
+                    type: string
                   caCertID:
                     description: CACertID is the ID of the CA if multiple CA certificates
                       are configured in the (sub-)account.

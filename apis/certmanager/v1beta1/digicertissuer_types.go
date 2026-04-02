@@ -43,6 +43,10 @@ type DigicertProvisioner struct {
 	// APITokenReference references a secret in the same namespace containing the DigiCert API token.
 	APITokenReference SecretKeySelector `json:"apiTokenReference"`
 
+	// PreferredChain requests a preferred trust chain root common name.
+	// This is best-effort and falls back to the default chain when not available.
+	PreferredChain string `json:"preferredChain,omitempty"`
+
 	// CACertID is the ID of the CA if multiple CA certificates are configured in the (sub-)account.
 	CACertID string `json:"caCertID,omitempty"`
 

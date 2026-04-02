@@ -4,15 +4,17 @@ This Document documents the types introduced by the DigiCert Issuer to be consum
 > Note this document is generated from code comments. When contributing a change to this document please do so by changing the code comments.
 
 ## Table of Contents
-* [ClusterDigicertIssuer](#clusterdigicertissuer)
-* [ClusterDigicertIssuerList](#clusterdigicertissuerlist)
-* [DigicertIssuer](#digicertissuer)
-* [DigicertIssuerCondition](#digicertissuercondition)
-* [DigicertIssuerList](#digicertissuerlist)
-* [DigicertIssuerSpec](#digicertissuerspec)
-* [DigicertIssuerStatus](#digicertissuerstatus)
-* [DigicertProvisioner](#digicertprovisioner)
-* [SecretKeySelector](#secretkeyselector)
+- [API Docs](#api-docs)
+  - [Table of Contents](#table-of-contents)
+  - [ClusterDigicertIssuer](#clusterdigicertissuer)
+  - [ClusterDigicertIssuerList](#clusterdigicertissuerlist)
+  - [DigicertIssuer](#digicertissuer)
+  - [DigicertIssuerCondition](#digicertissuercondition)
+  - [DigicertIssuerList](#digicertissuerlist)
+  - [DigicertIssuerSpec](#digicertissuerspec)
+  - [DigicertIssuerStatus](#digicertissuerstatus)
+  - [DigicertProvisioner](#digicertprovisioner)
+  - [SecretKeySelector](#secretkeyselector)
 
 ## ClusterDigicertIssuer
 
@@ -102,6 +104,7 @@ DigicertProvisioner contains the DigiCert provisioner configuration.
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
 | apiTokenReference | APITokenReference references a secret in the same namespace containing the DigiCert API token. | [SecretKeySelector](#secretkeyselector) | true |
+| preferredChain | PreferredChain requests a preferred trust chain root common name. This is best-effort and falls back to the default chain when not available. | string | false |
 | caCertID | CACertID is the ID of the CA if multiple CA certificates are configured in the (sub-)account. | string | false |
 | organizationID | OrganizationID is the ID of the organization in Digicert. | *int | false |
 | organizationName | OrganizationName is the name of the organization in Digicert. If specified takes precedence over OrganizationID. | string | false |
@@ -113,6 +116,8 @@ DigicertProvisioner contains the DigiCert provisioner configuration.
 | skipApproval | SkipApproval skips the approval of the certificate. | *bool | false |
 | orderType | OrderType is the certificate order type. | string | false |
 | containerID | ContainerID is the ID of the division | *int | false |
+
+PreferredChain works with cross-signed chains. Example: `DigiCert G5 TLS ECC SHA384 2021 CA1 (SHA384ECDSA) > DigiCert TLS ECC P384 Root G5 (SHA384ECDSA)` (`caCertId: A316EEE904D4717A`).
 
 [Back to TOC](#table-of-contents)
 
