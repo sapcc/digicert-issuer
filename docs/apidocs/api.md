@@ -4,17 +4,15 @@ This Document documents the types introduced by the DigiCert Issuer to be consum
 > Note this document is generated from code comments. When contributing a change to this document please do so by changing the code comments.
 
 ## Table of Contents
-- [API Docs](#api-docs)
-  - [Table of Contents](#table-of-contents)
-  - [ClusterDigicertIssuer](#clusterdigicertissuer)
-  - [ClusterDigicertIssuerList](#clusterdigicertissuerlist)
-  - [DigicertIssuer](#digicertissuer)
-  - [DigicertIssuerCondition](#digicertissuercondition)
-  - [DigicertIssuerList](#digicertissuerlist)
-  - [DigicertIssuerSpec](#digicertissuerspec)
-  - [DigicertIssuerStatus](#digicertissuerstatus)
-  - [DigicertProvisioner](#digicertprovisioner)
-  - [SecretKeySelector](#secretkeyselector)
+* [ClusterDigicertIssuer](#clusterdigicertissuer)
+* [ClusterDigicertIssuerList](#clusterdigicertissuerlist)
+* [DigicertIssuer](#digicertissuer)
+* [DigicertIssuerCondition](#digicertissuercondition)
+* [DigicertIssuerList](#digicertissuerlist)
+* [DigicertIssuerSpec](#digicertissuerspec)
+* [DigicertIssuerStatus](#digicertissuerstatus)
+* [DigicertProvisioner](#digicertprovisioner)
+* [SecretKeySelector](#secretkeyselector)
 
 ## ClusterDigicertIssuer
 
