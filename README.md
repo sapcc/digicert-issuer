@@ -30,4 +30,4 @@ For development, it may be convenient to use `make deploy-local` to install all 
 
 ## Release management
 
-Adjust the [version](VERSION) and run `make release` to build and publish a new version of the digicert-issuer.
+Create and push a git tag to build and publish a new version of the digicert-issuer.

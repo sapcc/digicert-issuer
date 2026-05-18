@@ -6,7 +6,6 @@ WORKDIR /workspace
 # Copy miscellaneous stuff.
 COPY .git/ .git/
 COPY Makefile Makefile
-COPY VERSION VERSION
 
 # Copy dependencies.
 COPY go.mod go.mod
