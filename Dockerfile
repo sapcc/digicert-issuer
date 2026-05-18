@@ -3,20 +3,8 @@ FROM golang:1.26 as builder
 
 WORKDIR /workspace
 
-# Copy miscellaneous stuff.
-COPY .git/ .git/
-COPY Makefile Makefile
-
-# Copy dependencies.
-COPY go.mod go.mod
-COPY go.sum go.sum
-RUN make vendor
-
-# Copy the go source.
-COPY main.go main.go
-COPY apis/ apis/
-COPY pkg/ pkg/
-COPY controllers/ controllers/
+# Copy the source.
+COPY . .
 
 # Build.
 RUN make build CGO_ENABLED=0
