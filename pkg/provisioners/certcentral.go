@@ -24,9 +24,9 @@ import (
 	"context"
 	"crypto/x509"
 	"fmt"
-	"log"
 
 	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
+	"github.com/go-logr/logr"
 	"github.com/sapcc/digicert-issuer/apis/certmanager/v1beta1"
 	certcentral "github.com/sapcc/go-certcentral"
 )
@@ -40,6 +40,7 @@ type certCentralClient interface {
 
 type CertCentral struct {
 	name   string
+	log    logr.Logger
 	client certCentralClient
 
 	validityDays        *int
@@ -59,7 +60,7 @@ func (c CertCentral) GetName() string {
 	return c.name
 }
 
-func New(name string, issuerSpec v1beta1.DigicertIssuerSpec, apiToken string) (*CertCentral, error) {
+func New(name string, issuerSpec v1beta1.DigicertIssuerSpec, apiToken string, log logr.Logger) (*CertCentral, error) {
 	client, err := certcentral.New(&certcentral.Options{
 		Token: apiToken,
 	})
@@ -123,6 +124,7 @@ func New(name string, issuerSpec v1beta1.DigicertIssuerSpec, apiToken string) (*
 
 	return &CertCentral{
 		name:                        name,
+		log:                         log,
 		client:                      client,
 		validityYears:               validityYears,
 		validityDays:                validityDays,
@@ -195,7 +197,7 @@ func (c *CertCentral) Sign(ctx context.Context, cr *certmanagerv1.CertificateReq
 		return nil, nil, nil, err
 	}
 
-	crtChain, err = buildPreferredChain(crtChain, getCommonName(certReq), c.preferredChain)
+	crtChain, err = c.buildPreferredChain(crtChain, c.preferredChain)
 
 	rootCAPEM, crtChainPEMs, err := encodePem(crtChain)
 	if err != nil {
@@ -226,12 +228,7 @@ func (c *CertCentral) Download(ctx context.Context, cr *certmanagerv1.Certificat
 		crtChain = append(crtChain, decodedCrt...)
 	}
 
-	certReq, err := decodeCertificateRequest(cr.Spec.Request)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	crtChain, err = buildPreferredChain(crtChain, getCommonName(certReq), c.preferredChain)
+	crtChain, err = c.buildPreferredChain(crtChain, c.preferredChain)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -239,18 +236,31 @@ func (c *CertCentral) Download(ctx context.Context, cr *certmanagerv1.Certificat
 	return encodePem(crtChain)
 }
 
-func buildPreferredChain(certBundle []*x509.Certificate, leafCN, preferredRootCN string) ([]*x509.Certificate, error) {
+func (c *CertCentral) buildPreferredChain(certBundle []*x509.Certificate, preferredRootCN string) ([]*x509.Certificate, error) {
 	if len(certBundle) == 0 {
 		return nil, fmt.Errorf("empty certificate bundle")
 	}
 	if preferredRootCN == "" {
-		log.Printf("preferred-chain: no preferredRoot configured, using default chain")
+		c.log.Info("preferred-chain: no preferredRoot configured, using default chain")
 		return certBundle, nil
 	}
 
-	leafCert := findLeafByCN(certBundle, leafCN)
+	referencedAsIssuer := make(map[string]struct{}, len(certBundle))
+	for _, cert := range certBundle {
+		referencedAsIssuer[string(cert.RawIssuer)] = struct{}{}
+	}
+	var leafCert *x509.Certificate
+	for _, cert := range certBundle {
+		if isSelfSigned(cert) {
+			continue
+		}
+		if _, ok := referencedAsIssuer[string(cert.RawSubject)]; !ok {
+			leafCert = cert
+			break
+		}
+	}
 	if leafCert == nil {
-		return nil, fmt.Errorf("leaf certificate with CN %q not found in bundle", leafCN)
+		return nil, fmt.Errorf("leaf certificate not found in bundle")
 	}
 
 	intermediates := x509.NewCertPool()
@@ -273,7 +283,7 @@ func buildPreferredChain(certBundle []*x509.Certificate, leafCN, preferredRootCN
 		Intermediates: intermediates,
 	})
 	if err != nil {
-		log.Printf("preferred-chain: unable to build preferred chain, using default chain: %v", err)
+		c.log.Info("preferred-chain: unable to build preferred chain, using default chain", "error", err)
 		return certBundle, nil
 	}
 	for _, chain := range chains {
@@ -282,22 +292,13 @@ func buildPreferredChain(certBundle []*x509.Certificate, leafCN, preferredRootCN
 		}
 		root := chain[len(chain)-1]
 		if root.Subject.CommonName == preferredRootCN && isSelfSigned(root) {
-			log.Printf("preferred-chain: selected preferred root %q", preferredRootCN)
+			c.log.Info("preferred-chain: selected preferred root", "preferredRootCN", preferredRootCN)
 			return chain, nil
 		}
 	}
-	log.Printf("preferred-chain: preferred root %q not found, using default chain", preferredRootCN)
+	c.log.Info("preferred-chain: preferred root not found, using default chain", "preferredRootCN", preferredRootCN)
 
 	return certBundle, nil
-}
-
-func findLeafByCN(certs []*x509.Certificate, leafCN string) *x509.Certificate {
-	for _, cert := range certs {
-		if cert.Subject.CommonName == leafCN {
-			return cert
-		}
-	}
-	return nil
 }
 
 func encodePem(crtChain []*x509.Certificate) ([]byte, []byte, error) {

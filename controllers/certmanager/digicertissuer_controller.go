@@ -102,7 +102,7 @@ func (r *DigicertIssuerReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		ctx, r.Client, issuer, certmanagerv1beta1.ConditionConfigurationError, certmanagerv1beta1.ConditionFalse, "", "",
 	)
 
-	prov, err := provisioners.New(fmt.Sprintf("%s/%s", req.Namespace, req.Name), issuer.Spec(), digicertAPIToken)
+	prov, err := provisioners.New(fmt.Sprintf("%s/%s", req.Namespace, req.Name), issuer.Spec(), digicertAPIToken, logger)
 	if err != nil {
 		logger.Error(err, "failed to initialize provisioner")
 		return ctrl.Result{}, err
