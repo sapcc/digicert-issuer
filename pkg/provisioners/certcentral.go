@@ -248,20 +248,7 @@ func (c *CertCentral) buildPreferredChain(certBundle []*x509.Certificate, prefer
 		return certBundle, nil
 	}
 
-	referencedAsIssuer := make(map[string]struct{}, len(certBundle))
-	for _, cert := range certBundle {
-		referencedAsIssuer[string(cert.RawIssuer)] = struct{}{}
-	}
-	var leafCert *x509.Certificate
-	for _, cert := range certBundle {
-		if isSelfSigned(cert) {
-			continue
-		}
-		if _, ok := referencedAsIssuer[string(cert.RawSubject)]; !ok {
-			leafCert = cert
-			break
-		}
-	}
+	leafCert := findLeaf(certBundle)
 	if leafCert == nil {
 		return nil, fmt.Errorf("leaf certificate not found in bundle")
 	}
