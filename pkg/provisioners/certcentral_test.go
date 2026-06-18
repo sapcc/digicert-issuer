@@ -11,6 +11,7 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"math/big"
+	"os"
 	"reflect"
 	"testing"
 	"time"
@@ -359,5 +360,82 @@ func assertChainCNs(t *testing.T, tlsPEM, caPEM []byte, wantTLSCNs, wantCACNs []
 	gotCA := certCNs(parsePEMCerts(t, caPEM))
 	if !reflect.DeepEqual(gotCA, wantCACNs) {
 		t.Fatalf("unexpected root CNs, got=%v expected=%v", gotCA, wantCACNs)
+	}
+}
+
+func loadFixtureCerts(t *testing.T, path string) []*x509.Certificate {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read fixture %s: %v", path, err)
+	}
+	return parsePEMCerts(t, data)
+}
+
+// TestBuildPreferredChainFromFixture uses the PEM bundle in test_fixtures/cross-signed-cert.pem
+// as the input — exactly as returned by DigiCert for a cross-signed order — and verifies that
+// buildPreferredChain can select either available trust path from it.
+//
+// The bundle contains (in order):
+//
+//	[1] leaf.test.local               signed by DigiCert Test Intermediate CA
+//	[2] DigiCert Test Intermediate CA signed by DigiCert Test Preferred Root
+//	[3] DigiCert Test Preferred Root  signed by DigiCert Test Global Root     (cross-signed)
+//	[4] DigiCert Test Preferred Root  signed by itself                        (self-signed root)
+//	[5] DigiCert Test Global Root     signed by itself                        (self-signed root)
+//
+// Certs [3] and [4] carry the same public key — this is the defining property of a cross-signed
+// certificate and what allows Go's x509.Verify to walk both trust paths.
+//
+// Chain A (prefer "DigiCert Test Preferred Root"):
+//
+//	leaf → Intermediate → Preferred Root (self)
+//
+// Chain B (prefer "DigiCert Test Global Root"):
+//
+//	leaf → Intermediate → Preferred Root (cross) → Global Root
+func TestBuildPreferredChainFromFixture(t *testing.T) {
+	bundle := loadFixtureCerts(t, "test_fixtures/cross-signed-cert.pem")
+	csrPEM := createCSR(t, "leaf.test.local")
+
+	tests := []struct {
+		name        string
+		preferredCN string
+		wantTLSCNs  []string
+		wantCACNs   []string
+	}{
+		{
+			name:        "select_preferred_root_chain",
+			preferredCN: "DigiCert Test Preferred Root",
+			wantTLSCNs:  []string{"leaf.test.local", "DigiCert Test Intermediate CA"},
+			wantCACNs:   []string{"DigiCert Test Preferred Root"},
+		},
+		{
+			name:        "select_global_root_chain",
+			preferredCN: "DigiCert Test Global Root",
+			wantTLSCNs:  []string{"leaf.test.local", "DigiCert Test Intermediate CA", "DigiCert Test Preferred Root"},
+			wantCACNs:   []string{"DigiCert Test Global Root"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mock := &mockCertCentralClient{
+				submitOrder: &certcentral.Order{CertificateChain: constructCertificateChain(t, bundle)},
+			}
+			provisioner := &CertCentral{client: mock, preferredChain: tt.preferredCN}
+
+			cr := &certmanagerv1.CertificateRequest{
+				ObjectMeta: metav1.ObjectMeta{Name: "fixture-test"},
+				Spec:       certmanagerv1.CertificateRequestSpec{Request: csrPEM},
+			}
+
+			caPEM, tlsPEM, _, err := provisioner.Sign(context.Background(), cr)
+			if err != nil {
+				t.Fatalf("Sign returned error: %v", err)
+			}
+
+			assertChainCNs(t, tlsPEM, caPEM, tt.wantTLSCNs, tt.wantCACNs)
+		})
 	}
 }

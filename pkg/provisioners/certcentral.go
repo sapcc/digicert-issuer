@@ -198,6 +198,9 @@ func (c *CertCentral) Sign(ctx context.Context, cr *certmanagerv1.CertificateReq
 	}
 
 	crtChain, err = c.buildPreferredChain(crtChain, c.preferredChain)
+	if err != nil {
+		return nil, nil, nil, err
+	}
 
 	rootCAPEM, crtChainPEMs, err := encodePem(crtChain)
 	if err != nil {
