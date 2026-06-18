@@ -22,7 +22,7 @@ test: generate fmt vet manifests
 build: BUILD_DATE  = $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 build: GIT_REVISION  = $(shell git rev-parse --short HEAD)
 build: GIT_BRANCH = $(shell git rev-parse --abbrev-ref HEAD)
-build: VERSION=$(shell cat VERSION)
+build: VERSION=$(shell git describe --tags --always --dirty="-dev")
 build: fmt vet
 	go build\
 		-ldflags "-s -w -X github.com/sapcc/digicert-issuer/pkg/version.Revision=$(GIT_REVISION) -X github.com/sapcc/digicert-issuer/pkg/version.Branch=$(GIT_BRANCH) -X github.com/sapcc/digicert-issuer/pkg/version.BuildDate=$(BUILD_DATE) -X github.com/sapcc/digicert-issuer/pkg/version.Version=$(VERSION)"\
