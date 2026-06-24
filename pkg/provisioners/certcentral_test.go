@@ -19,6 +19,7 @@ import (
 	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	certcentral "github.com/sapcc/go-certcentral"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/record"
 )
 
 type mockCertCentralClient struct {
@@ -109,14 +110,14 @@ func TestCertCentralSignPreferredChain(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockCertCentralClient := &mockCertCentralClient{submitOrder: &certcentral.Order{CertificateChain: constructCertificateChain(t, tt.bundle)}}
-			provisioner := &CertCentral{client: mockCertCentralClient, preferredChain: tt.preferredCN}
+			provisioner := &CertCentral{client: mockCertCentralClient, preferredChain: tt.preferredCN, recorder: record.NewFakeRecorder(10)}
 
 			cr := &certmanagerv1.CertificateRequest{
 				ObjectMeta: metav1.ObjectMeta{Name: "sign-test"},
 				Spec:       certmanagerv1.CertificateRequestSpec{Request: csrPEM},
 			}
 
-			caPEM, tlsPEM, _, _, err := provisioner.Sign(context.Background(), cr)
+			caPEM, tlsPEM, _, err := provisioner.Sign(context.Background(), cr)
 			if err != nil {
 				t.Fatalf("Sign returned error: %v", err)
 			}
@@ -191,7 +192,7 @@ func TestCertCentralDownloadPreferredChain(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockCertCentralClient := &mockCertCentralClient{chain: constructCertificateChain(t, tt.bundle)}
-			provisioner := &CertCentral{client: mockCertCentralClient, preferredChain: tt.preferredCN}
+			provisioner := &CertCentral{client: mockCertCentralClient, preferredChain: tt.preferredCN, recorder: record.NewFakeRecorder(10)}
 
 			cr := &certmanagerv1.CertificateRequest{
 				ObjectMeta: metav1.ObjectMeta{
@@ -201,7 +202,7 @@ func TestCertCentralDownloadPreferredChain(t *testing.T) {
 				Spec: certmanagerv1.CertificateRequestSpec{Request: csrPEM},
 			}
 
-			caPEM, tlsPEM, _, err := provisioner.Download(context.Background(), cr)
+			caPEM, tlsPEM, err := provisioner.Download(context.Background(), cr)
 			if err != nil {
 				t.Fatalf("Download returned error: %v", err)
 			}
@@ -423,14 +424,14 @@ func TestBuildPreferredChainFromFixture(t *testing.T) {
 			mock := &mockCertCentralClient{
 				submitOrder: &certcentral.Order{CertificateChain: constructCertificateChain(t, bundle)},
 			}
-			provisioner := &CertCentral{client: mock, preferredChain: tt.preferredCN}
+			provisioner := &CertCentral{client: mock, preferredChain: tt.preferredCN, recorder: record.NewFakeRecorder(10)}
 
 			cr := &certmanagerv1.CertificateRequest{
 				ObjectMeta: metav1.ObjectMeta{Name: "fixture-test"},
 				Spec:       certmanagerv1.CertificateRequestSpec{Request: csrPEM},
 			}
 
-			caPEM, tlsPEM, _, _, err := provisioner.Sign(context.Background(), cr)
+			caPEM, tlsPEM, _, err := provisioner.Sign(context.Background(), cr)
 			if err != nil {
 				t.Fatalf("Sign returned error: %v", err)
 			}
