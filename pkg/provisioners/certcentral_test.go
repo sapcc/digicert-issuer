@@ -116,7 +116,7 @@ func TestCertCentralSignPreferredChain(t *testing.T) {
 				Spec:       certmanagerv1.CertificateRequestSpec{Request: csrPEM},
 			}
 
-			caPEM, tlsPEM, _, err := provisioner.Sign(context.Background(), cr)
+			caPEM, tlsPEM, _, _, err := provisioner.Sign(context.Background(), cr)
 			if err != nil {
 				t.Fatalf("Sign returned error: %v", err)
 			}
@@ -201,7 +201,7 @@ func TestCertCentralDownloadPreferredChain(t *testing.T) {
 				Spec: certmanagerv1.CertificateRequestSpec{Request: csrPEM},
 			}
 
-			caPEM, tlsPEM, err := provisioner.Download(context.Background(), cr)
+			caPEM, tlsPEM, _, err := provisioner.Download(context.Background(), cr)
 			if err != nil {
 				t.Fatalf("Download returned error: %v", err)
 			}
@@ -430,7 +430,7 @@ func TestBuildPreferredChainFromFixture(t *testing.T) {
 				Spec:       certmanagerv1.CertificateRequestSpec{Request: csrPEM},
 			}
 
-			caPEM, tlsPEM, _, err := provisioner.Sign(context.Background(), cr)
+			caPEM, tlsPEM, _, _, err := provisioner.Sign(context.Background(), cr)
 			if err != nil {
 				t.Fatalf("Sign returned error: %v", err)
 			}

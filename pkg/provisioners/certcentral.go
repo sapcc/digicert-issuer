@@ -23,6 +23,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/x509"
+	"errors"
 	"fmt"
 
 	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
@@ -58,6 +59,10 @@ type CertCentral struct {
 
 func (c CertCentral) GetName() string {
 	return c.name
+}
+
+func (c CertCentral) GetPreferredChain() string {
+	return c.preferredChain
 }
 
 func New(name string, issuerSpec v1beta1.DigicertIssuerSpec, apiToken string, log logr.Logger) (*CertCentral, error) {
@@ -140,14 +145,14 @@ func New(name string, issuerSpec v1beta1.DigicertIssuerSpec, apiToken string, lo
 	}, nil
 }
 
-func (c *CertCentral) Sign(ctx context.Context, cr *certmanagerv1.CertificateRequest) ([]byte, []byte, *certcentral.Order, error) {
+func (c *CertCentral) Sign(ctx context.Context, cr *certmanagerv1.CertificateRequest) ([]byte, []byte, *certcentral.Order, bool, error) {
 	certReq, err := decodeCertificateRequest(cr.Spec.Request)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, false, err
 	}
 
 	if err := certReq.CheckSignature(); err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, false, err
 	}
 
 	sans := certReq.DNSNames
@@ -185,7 +190,7 @@ func (c *CertCentral) Sign(ctx context.Context, cr *certmanagerv1.CertificateReq
 		},
 	}, c.orderType)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, false, err
 	}
 
 	// TODO: This currently relies on skipApproval=true, so the certificates are returned immediately.
@@ -194,63 +199,64 @@ func (c *CertCentral) Sign(ctx context.Context, cr *certmanagerv1.CertificateReq
 	// Bonus points: Cache the CA and intermediate as they won't change and only download the missing certificate.
 	crtChain, err := orderResponse.DecodeCertificateChain()
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, false, err
 	}
 
-	crtChain, err = c.buildPreferredChain(crtChain, c.preferredChain)
+	crtChain, fellBack, err := c.buildPreferredChain(crtChain, c.preferredChain, cr.Namespace, cr.Name)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, false, err
 	}
 
 	rootCAPEM, crtChainPEMs, err := encodePem(crtChain)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, false, err
 	}
 
-	return rootCAPEM, crtChainPEMs, orderResponse, nil
+	return rootCAPEM, crtChainPEMs, orderResponse, fellBack, nil
 }
 
-func (c *CertCentral) Download(ctx context.Context, cr *certmanagerv1.CertificateRequest) ([]byte, []byte, error) {
+func (c *CertCentral) Download(ctx context.Context, cr *certmanagerv1.CertificateRequest) ([]byte, []byte, bool, error) {
 	certID := cr.GetAnnotations()["certmanager.cloud.sap/digicert-cert-id"]
 	if certID == "" {
 		// TODO: get cert_id by order_id if missing
-		return nil, nil, fmt.Errorf("no cert id given for %s", cr.ObjectMeta.Name)
+		return nil, nil, false, fmt.Errorf("no cert id given for %s", cr.ObjectMeta.Name)
 	}
 
 	chain, err := c.client.GetCertificateChain(certID)
 	if err != nil {
-		return nil, nil, fmt.Errorf("error receiving certificate chain %s for request %s: %s", certID, cr.ObjectMeta.Name, err)
+		return nil, nil, false, fmt.Errorf("error receiving certificate chain %s for request %s: %s", certID, cr.ObjectMeta.Name, err)
 	}
 
 	crtChain := make([]*x509.Certificate, 0)
 	for _, crt := range chain {
 		decodedCrt, err := crt.DecodePEM()
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, false, err
 		}
 		crtChain = append(crtChain, decodedCrt...)
 	}
 
-	crtChain, err = c.buildPreferredChain(crtChain, c.preferredChain)
+	crtChain, fellBack, err := c.buildPreferredChain(crtChain, c.preferredChain, cr.Namespace, cr.Name)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, false, err
 	}
 
-	return encodePem(crtChain)
+	caPEM, certPEM, err := encodePem(crtChain)
+	return caPEM, certPEM, fellBack, err
 }
 
-func (c *CertCentral) buildPreferredChain(certBundle []*x509.Certificate, preferredRootCN string) ([]*x509.Certificate, error) {
+func (c *CertCentral) buildPreferredChain(certBundle []*x509.Certificate, preferredRootCN, namespace, name string) ([]*x509.Certificate, bool, error) {
 	if len(certBundle) == 0 {
-		return nil, fmt.Errorf("empty certificate bundle")
+		return nil, false, errors.New("empty certificate bundle")
 	}
 	if preferredRootCN == "" {
-		c.log.Info("preferred-chain: no preferredRoot configured, using default chain")
-		return certBundle, nil
+		c.log.Info("preferred-chain: no preferredRoot configured, using default chain", "namespace", namespace, "name", name)
+		return certBundle, false, nil
 	}
 
 	leafCert := findLeaf(certBundle)
 	if leafCert == nil {
-		return nil, fmt.Errorf("leaf certificate not found in bundle")
+		return nil, false, errors.New("leaf certificate not found in bundle")
 	}
 
 	intermediates := x509.NewCertPool()
@@ -273,8 +279,8 @@ func (c *CertCentral) buildPreferredChain(certBundle []*x509.Certificate, prefer
 		Intermediates: intermediates,
 	})
 	if err != nil {
-		c.log.Info("preferred-chain: unable to build preferred chain, using default chain", "error", err)
-		return certBundle, nil
+		c.log.Info("preferred-chain: unable to build preferred chain, using default chain", "error", err, "namespace", namespace, "name", name)
+		return certBundle, true, nil
 	}
 	for _, chain := range chains {
 		if len(chain) == 0 {
@@ -282,13 +288,13 @@ func (c *CertCentral) buildPreferredChain(certBundle []*x509.Certificate, prefer
 		}
 		root := chain[len(chain)-1]
 		if root.Subject.CommonName == preferredRootCN && isSelfSigned(root) {
-			c.log.Info("preferred-chain: selected preferred root", "preferredRootCN", preferredRootCN)
-			return chain, nil
+			c.log.Info("preferred-chain: selected preferred root", "preferredRootCN", preferredRootCN, "namespace", namespace, "name", name)
+			return chain, false, nil
 		}
 	}
-	c.log.Info("preferred-chain: preferred root not found, using default chain", "preferredRootCN", preferredRootCN)
+	c.log.Info("preferred-chain: preferred root not found, using default chain", "preferredRootCN", preferredRootCN, "namespace", namespace, "name", name)
 
-	return certBundle, nil
+	return certBundle, true, nil
 }
 
 func encodePem(crtChain []*x509.Certificate) ([]byte, []byte, error) {

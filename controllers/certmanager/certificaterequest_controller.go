@@ -170,7 +170,7 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 	// Download pending certificate
 	if isCertificateRequestPending(cr) {
 		log.V(4).Info("CertificateRequest is in pending state, trying to download certificate.", "name", cr.ObjectMeta.Name)
-		caPEM, certPEM, err := provisioner.Download(ctx, cr)
+		caPEM, certPEM, fellBack, err := provisioner.Download(ctx, cr)
 
 		if err != nil || len(certPEM) < 1 {
 			log.V(4).Info("Download of pending certificate failed, reqeueing.", "name", cr.ObjectMeta.Name)
@@ -182,6 +182,10 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 			).Inc()
 
 			return ctrl.Result{Requeue: true, RequeueAfter: r.BackoffDurationRequestPending}, err
+		}
+
+		if fellBack {
+			r.recorder.Eventf(cr, core.EventTypeWarning, "PreferredChainFallback", "preferred chain %q not found, using default chain", provisioner.GetPreferredChain())
 		}
 
 		if len(caPEM) > 0 && !r.DisableRootCA {
@@ -204,7 +208,7 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 
 	// Sign CertificateRequest.
-	caPEM, certPEM, order, err := provisioner.Sign(ctx, cr)
+	caPEM, certPEM, order, fellBack, err := provisioner.Sign(ctx, cr)
 	if err != nil {
 		log.Error(err, "failed to sign certificate request")
 		metricRequestErrors.WithLabelValues(
@@ -214,6 +218,10 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 			"Failed to sign certificate request",
 		).Inc()
 		return ctrl.Result{}, r.setStatus(ctx, cr, curCR, cmmeta.ConditionFalse, cmapi.CertificateRequestReasonFailed, "Failed to sign certificate request: %v", err)
+	}
+
+	if fellBack {
+		r.recorder.Eventf(cr, core.EventTypeWarning, "PreferredChainFallback", "preferred chain %q not found, using default chain", provisioner.GetPreferredChain())
 	}
 
 	// Patch annotations.
