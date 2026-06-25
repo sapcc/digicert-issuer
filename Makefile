@@ -16,7 +16,7 @@ all: generate manifests build
 
 # Run tests
 test: generate fmt vet manifests
-	go test ./... -coverprofile cover.out | grep -v "no test files"
+	go test -v ./... -coverprofile cover.out | grep -v "no test files"
 
 # Build digicert-issuer binary.
 build: BUILD_DATE  = $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
