@@ -77,3 +77,12 @@ func getCommonName(cr *x509.CertificateRequest) string {
 func isSelfSigned(cert *x509.Certificate) bool {
 	return cert.CheckSignatureFrom(cert) == nil
 }
+
+func findLeaf(certBundle []*x509.Certificate) *x509.Certificate {
+	for _, cert := range certBundle {
+		if !cert.IsCA {
+			return cert
+		}
+	}
+	return nil
+}
