@@ -37,6 +37,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/config"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	// +kubebuilder:scaffold:imports
@@ -111,6 +112,9 @@ func main() {
 		Metrics: metricsserver.Options{
 			BindAddress: metricsAddr,
 		},
+		Controller: config.Controller{
+			CacheSyncTimeout: cacheSyncTimeout,
+		},
 		LeaderElection:   true,
 		LeaderElectionID: "digicertissuer.cloud.sap",
 	})
@@ -127,7 +131,6 @@ func main() {
 	err = (&certmanagerv1beta1controller.CertificateRequestReconciler{
 		BackoffDurationProvisionerNotReady: backoffDurationProvisionerNotReady,
 		BackoffDurationRequestPending:      backoffDurationRequestPending,
-		CacheSyncTimeout:                   cacheSyncTimeout,
 		DefaultProviderNamespace:           getValueFromEnvironmentOrDefault("POD_NAMESPACE", "kube-system"),
 		DisableRootCA:                      disableRootCA,
 	}).SetupWithManager(mgr)
