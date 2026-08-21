@@ -37,7 +37,6 @@ import (
 // DigicertIssuerReconciler reconciles a DigicertIssuer object
 type DigicertIssuerReconciler struct {
 	client.Client
-	directReader           client.Reader
 	log                    logr.Logger
 	recorder               record.EventRecorder
 	clusterIssuerNamespace string
@@ -90,7 +89,7 @@ func (r *DigicertIssuerReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	)
 
 	secretRef := issuer.Spec().Provisioner.APITokenReference
-	digicertAPIToken, err := k8sutils.GetSecretData(ctx, r.directReader, secretNamespace, secretRef.Name, secretRef.Key)
+	digicertAPIToken, err := k8sutils.GetSecretData(ctx, r.Client, secretNamespace, secretRef.Name, secretRef.Key)
 	if err != nil {
 		logger.Error(err, "failed to get provisioner secret containing the API token")
 		k8sutils.SetDigicertIssuerStatusConditionType(
@@ -122,7 +121,6 @@ func (r *DigicertIssuerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.recorder = mgr.GetEventRecorderFor("digicertIssuer")
 	r.log = mgr.GetLogger().WithName("controllers").WithName("DigicertIssuer")
 	r.Client = mgr.GetClient()
-	r.directReader = mgr.GetAPIReader()
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&certmanagerv1beta1.DigicertIssuer{}).
 		Complete(r)
@@ -132,7 +130,6 @@ func (r *DigicertIssuerReconciler) SetupWithManagerClusterIssuer(mgr ctrl.Manage
 	r.recorder = mgr.GetEventRecorderFor("clusterDigicertIssuer")
 	r.log = mgr.GetLogger().WithName("controllers").WithName("ClusterDigicertIssuer")
 	r.Client = mgr.GetClient()
-	r.directReader = mgr.GetAPIReader()
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&certmanagerv1beta1.ClusterDigicertIssuer{}).
 		Complete(r)
