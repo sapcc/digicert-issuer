@@ -186,7 +186,7 @@ func (c *CertCentral) Sign(ctx context.Context, cr *certmanagerv1.CertificateReq
 		return nil, nil, nil, err
 	}
 
-	rootCAPEM, crtChainPEMs, err := encodePem(crtChain)
+	rootCAPEM, crtChainPEMs, err := encodePem(dropG1Chain(crtChain))
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -215,7 +215,7 @@ func (c *CertCentral) Download(ctx context.Context, cr *certmanagerv1.Certificat
 		crtChain = append(crtChain, decodedCrt...)
 	}
 
-	return encodePem(crtChain)
+	return encodePem(dropG1Chain(crtChain))
 }
 
 func encodePem(crtChain []*x509.Certificate) ([]byte, []byte, error) {
@@ -237,4 +237,14 @@ func encodePem(crtChain []*x509.Certificate) ([]byte, []byte, error) {
 	}
 
 	return rootCAPEM, crtChainPEMs, nil
+}
+
+func dropG1Chain(chain []*x509.Certificate) []*x509.Certificate {
+    result := make([]*x509.Certificate, 0, len(chain))
+    for _, crt := range chain {
+        if crt.Issuer.CommonName != "DigiCert Global Root CA" {
+            result = append(result, crt)
+        }
+    }
+    return result
 }
