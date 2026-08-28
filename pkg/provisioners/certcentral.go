@@ -186,7 +186,7 @@ func (c *CertCentral) Sign(ctx context.Context, cr *certmanagerv1.CertificateReq
 		return nil, nil, nil, err
 	}
 
-	rootCAPEM, crtChainPEMs, err := encodePem(dropG1Chain(crtChain))
+	rootCAPEM, crtChainPEMs, err := encodePem(g5OnlyChain(crtChain))
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -215,7 +215,7 @@ func (c *CertCentral) Download(ctx context.Context, cr *certmanagerv1.Certificat
 		crtChain = append(crtChain, decodedCrt...)
 	}
 
-	return encodePem(dropG1Chain(crtChain))
+	return encodePem(g5OnlyChain(crtChain))
 }
 
 func encodePem(crtChain []*x509.Certificate) ([]byte, []byte, error) {
@@ -239,10 +239,36 @@ func encodePem(crtChain []*x509.Certificate) ([]byte, []byte, error) {
 	return rootCAPEM, crtChainPEMs, nil
 }
 
-func dropG1Chain(chain []*x509.Certificate) []*x509.Certificate {
+const g5RootCN = "DigiCert TLS RSA4096 Root G5" // Used to filter the G5-only chain certificates
+
+func g5OnlyChain(chain []*x509.Certificate) []*x509.Certificate {
+	if len(chain) <= 3 {
+        return chain
+    }
+
+    var g5Root *x509.Certificate
+    for _, crt := range chain {
+        if crt.Subject.CommonName == g5RootCN {
+            g5Root = crt
+            break
+        }
+    }
+    if g5Root == nil { 
+        return chain
+    }
+
+    allowed := map[string]bool{g5Root.Subject.String(): true}
+    for range chain {
+        for _, crt := range chain {
+            if allowed[crt.Issuer.String()] {
+                allowed[crt.Subject.String()] = true
+            }
+        }
+    }
+
     result := make([]*x509.Certificate, 0, len(chain))
     for _, crt := range chain {
-        if crt.Issuer.CommonName != "DigiCert Global Root CA" {
+        if allowed[crt.Issuer.String()] {
             result = append(result, crt)
         }
     }
