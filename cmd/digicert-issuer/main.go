@@ -29,6 +29,7 @@ import (
 	certmanagerv1beta1 "github.com/sapcc/digicert-issuer/apis/certmanager/v1beta1"
 	certmanagerv1beta1controller "github.com/sapcc/digicert-issuer/controllers/certmanager"
 	"github.com/sapcc/digicert-issuer/pkg/version"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -37,6 +38,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/config"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
@@ -107,7 +109,14 @@ func main() {
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&logOpts)))
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Cache:  cache.Options{DefaultTransform: cache.TransformStripManagedFields()},
+		Cache: cache.Options{
+			DefaultTransform: cache.TransformStripManagedFields(),
+			ByObject: map[client.Object]cache.ByObject{
+				&certmanagerv1.CertificateRequest{}: {
+					Field: fields.OneTermEqualSelector("spec.issuerRef.group", certmanagerv1beta1.GroupVersion.Group),
+				},
+			},
+		},
 		Scheme: scheme,
 		Metrics: metricsserver.Options{
 			BindAddress: metricsAddr,
